@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/elh/mal-go/internal/pkg/ast"
+	"github.com/elh/mal-go/internal/pkg/printer"
 )
 
 // Env is a map of symbols to bound values.
@@ -39,8 +40,19 @@ func (e *Env) Get(symbol string) ast.Sexpr {
 	panic(fmt.Sprintf("symbol '%v' not found", symbol))
 }
 
-// GlobalEnv creates a new default global environment.
-func GlobalEnv() *Env {
+func asFloat(v interface{}) float64 {
+	switch v := v.(type) {
+	case int64:
+		return float64(v)
+	case float64:
+		return v
+	default:
+		panic(fmt.Sprintf("cannot convert %v to float64", v))
+	}
+}
+
+// BuiltInEnv creates a new default built-in namespace env.
+func BuiltInEnv() *Env {
 	return &Env{
 		outer: nil,
 		bindings: map[string]ast.Sexpr{
@@ -85,6 +97,93 @@ func GlobalEnv() *Env {
 					}
 				}
 				return ast.Sexpr{Type: "integer", Val: quotient}
+			}},
+			"prn": {Type: "function", Val: func(args ...ast.Sexpr) ast.Sexpr {
+				if len(args) < 1 {
+					panic("wrong number of arguments. `prn` requires at least 1 arguments")
+				}
+				fmt.Println(printer.PrintStr(args[0]))
+				return ast.Sexpr{Type: "nil", Val: nil}
+			}},
+			"list": {Type: "function", Val: func(args ...ast.Sexpr) ast.Sexpr {
+				return ast.Sexpr{Type: "list", Val: args}
+			}},
+			"list?": {Type: "function", Val: func(args ...ast.Sexpr) ast.Sexpr {
+				if len(args) > 0 && args[0].Type == "list" {
+					return ast.Sexpr{Type: "boolean", Val: true}
+				}
+				return ast.Sexpr{Type: "boolean", Val: false}
+			}},
+			"empty?": {Type: "function", Val: func(args ...ast.Sexpr) ast.Sexpr {
+				if len(args) > 0 && args[0].Type == "list" && len(args[0].Val.([]ast.Sexpr)) == 0 {
+					return ast.Sexpr{Type: "boolean", Val: true}
+				}
+				return ast.Sexpr{Type: "boolean", Val: false}
+			}},
+			"count": {Type: "function", Val: func(args ...ast.Sexpr) ast.Sexpr {
+				if len(args) > 0 && args[0].Type == "list" {
+					return ast.Sexpr{Type: "integer", Val: int64(len(args[0].Val.([]ast.Sexpr)))}
+				}
+				return ast.Sexpr{Type: "integer", Val: int64(0)}
+			}},
+			"=": {Type: "function", Val: func(args ...ast.Sexpr) ast.Sexpr {
+				if len(args) != 2 {
+					panic("wrong number of arguments. `=` requires 2 arguments")
+				}
+				if args[0].Type == "list" && args[1].Type == "list" {
+					alist := args[0].Val.([]ast.Sexpr)
+					blist := args[1].Val.([]ast.Sexpr)
+					if len(alist) != len(blist) {
+						return ast.Sexpr{Type: "boolean", Val: false}
+					}
+					for i, a := range alist {
+						if a.Type != blist[i].Type || a.Val != blist[i].Val {
+							return ast.Sexpr{Type: "boolean", Val: false}
+						}
+					}
+					return ast.Sexpr{Type: "boolean", Val: true}
+				}
+
+				if args[0].Type != args[1].Type || args[0].Val != args[1].Val {
+					return ast.Sexpr{Type: "boolean", Val: false}
+				}
+				return ast.Sexpr{Type: "boolean", Val: true}
+			}},
+			"<": {Type: "function", Val: func(args ...ast.Sexpr) ast.Sexpr {
+				if len(args) != 2 {
+					panic("wrong number of arguments. `<` requires 2 arguments")
+				}
+				if asFloat(args[0].Val) < asFloat(args[1].Val) {
+					return ast.Sexpr{Type: "boolean", Val: true}
+				}
+				return ast.Sexpr{Type: "boolean", Val: false}
+			}},
+			"<=": {Type: "function", Val: func(args ...ast.Sexpr) ast.Sexpr {
+				if len(args) != 2 {
+					panic("wrong number of arguments. `<` requires 2 arguments")
+				}
+				if asFloat(args[0].Val) <= asFloat(args[1].Val) {
+					return ast.Sexpr{Type: "boolean", Val: true}
+				}
+				return ast.Sexpr{Type: "boolean", Val: false}
+			}},
+			">": {Type: "function", Val: func(args ...ast.Sexpr) ast.Sexpr {
+				if len(args) != 2 {
+					panic("wrong number of arguments. `<` requires 2 arguments")
+				}
+				if asFloat(args[0].Val) > asFloat(args[1].Val) {
+					return ast.Sexpr{Type: "boolean", Val: true}
+				}
+				return ast.Sexpr{Type: "boolean", Val: false}
+			}},
+			">=": {Type: "function", Val: func(args ...ast.Sexpr) ast.Sexpr {
+				if len(args) != 2 {
+					panic("wrong number of arguments. `<` requires 2 arguments")
+				}
+				if asFloat(args[0].Val) >= asFloat(args[1].Val) {
+					return ast.Sexpr{Type: "boolean", Val: true}
+				}
+				return ast.Sexpr{Type: "boolean", Val: false}
 			}},
 		},
 	}

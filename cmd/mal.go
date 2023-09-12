@@ -45,7 +45,7 @@ func rep(str string, env *evaluator.Env) (out string) {
 
 func main() {
 	reader := bufio.NewReader(os.Stdin)
-	env := evaluator.GlobalEnv()
+	env := evaluator.BuiltInEnv()
 	for {
 		fmt.Print("user> ")
 		input, err := reader.ReadString('\n')
