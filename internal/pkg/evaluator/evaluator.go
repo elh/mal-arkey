@@ -52,6 +52,20 @@ func evalLet(args []ast.Sexpr, env *Env) ast.Sexpr {
 	return Eval(args[1], letEnv)
 }
 
+func evalIf(args []ast.Sexpr, env *Env) ast.Sexpr {
+	if len(args) != 2 && len(args) != 3 {
+		panic("if requires three (or two) arguments")
+	}
+	cond := Eval(args[0], env)
+	if (cond.Type == "boolean" && !cond.Val.(bool)) || (cond.Type == "nil") {
+		if len(args) == 3 {
+			return Eval(args[2], env)
+		}
+		return ast.Sexpr{Type: "nil", Val: nil}
+	}
+	return Eval(args[1], env)
+}
+
 // Eval evaluates an s-expression in the given environment.
 func Eval(expr ast.Sexpr, env *Env) ast.Sexpr {
 	if expr.Type != "list" {
@@ -64,11 +78,14 @@ func Eval(expr ast.Sexpr, env *Env) ast.Sexpr {
 
 	// special forms
 	if list[0].Type == "symbol" {
+		args := list[1:]
 		switch list[0].Val.(string) {
 		case "def!":
-			return evalDef(list[1:], env)
+			return evalDef(args, env)
 		case "let*":
-			return evalLet(list[1:], env)
+			return evalLet(args, env)
+		case "if":
+			return evalIf(args, env)
 		}
 	}
 
