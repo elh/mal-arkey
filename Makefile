@@ -1,5 +1,13 @@
-.PHONY: mal
-mal:
+.PHONY: help
+help:
+	@echo "You must specify a target: repl, bin"
+
+.PHONY: repl
+repl:
+	@go run cmd/mal.go
+
+.PHONY: bin
+bin:
 	@mkdir -p bin
 	@go build -o bin/mal cmd/mal.go
 	@cp bin/mal bin/step0_repl
