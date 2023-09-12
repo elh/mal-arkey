@@ -8,26 +8,29 @@ import (
 
 // Env is a map of symbols to bound values.
 type Env struct {
-	outer *Env
-	data  map[string]ast.Sexpr
+	outer    *Env
+	bindings map[string]ast.Sexpr
 }
 
 // NewEnv creates a new environment with the given outer environment.
-func NewEnv(outer *Env) *Env {
+func NewEnv(outer *Env, bindings *map[string]ast.Sexpr) *Env {
+	if bindings == nil {
+		bindings = &map[string]ast.Sexpr{}
+	}
 	return &Env{
-		outer: outer,
-		data:  map[string]ast.Sexpr{},
+		outer:    outer,
+		bindings: *bindings,
 	}
 }
 
 // Set binds a symbol to a value in the current environment.
 func (e *Env) Set(symbol string, value ast.Sexpr) {
-	e.data[symbol] = value
+	e.bindings[symbol] = value
 }
 
 // Get returns the value bound to the given symbol in the environment.
 func (e *Env) Get(symbol string) ast.Sexpr {
-	if val, ok := e.data[symbol]; ok {
+	if val, ok := e.bindings[symbol]; ok {
 		return val
 	}
 	if e.outer != nil {
@@ -40,7 +43,7 @@ func (e *Env) Get(symbol string) ast.Sexpr {
 func GlobalEnv() *Env {
 	return &Env{
 		outer: nil,
-		data: map[string]ast.Sexpr{
+		bindings: map[string]ast.Sexpr{
 			"+": {Type: "function", Val: func(args ...ast.Sexpr) ast.Sexpr {
 				var sum int64
 				for _, arg := range args {

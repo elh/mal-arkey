@@ -18,6 +18,40 @@ func evalAST(sexpr ast.Sexpr, env *Env) ast.Sexpr {
 	}
 }
 
+func evalDef(args []ast.Sexpr, env *Env) ast.Sexpr {
+	if len(args) != 2 {
+		panic("def! requires two arguments")
+	}
+	if args[0].Type != "symbol" {
+		panic("def! requires a symbol as first argument")
+	}
+	v := Eval(args[1], env)
+	env.Set(args[0].Val.(string), v)
+	return v
+}
+
+func evalLet(args []ast.Sexpr, env *Env) ast.Sexpr {
+	letEnv := NewEnv(env, nil)
+	if len(args) != 2 {
+		panic("let* requires two arguments")
+	}
+	if args[0].Type != "list" {
+		panic("let* requires a list as first argument")
+	}
+	bindings := args[0].Val.([]ast.Sexpr)
+	if len(bindings)%2 != 0 {
+		panic("let* requires an even number of forms in bindings")
+	}
+	for i := 0; i < len(bindings); i += 2 {
+		if bindings[i].Type != "symbol" {
+			panic("let* bindings must be symbols")
+		}
+		letEnv.Set(bindings[i].Val.(string), Eval(bindings[i+1], letEnv))
+	}
+
+	return Eval(args[1], letEnv)
+}
+
 // Eval evaluates an s-expression in the given environment.
 func Eval(expr ast.Sexpr, env *Env) ast.Sexpr {
 	if expr.Type != "list" {
@@ -28,40 +62,14 @@ func Eval(expr ast.Sexpr, env *Env) ast.Sexpr {
 		return expr
 	}
 
-	// def!
-	if list[0].Type == "symbol" && list[0].Val.(string) == "def!" {
-		if len(list) != 3 {
-			panic("def! requires two arguments")
+	// special forms
+	if list[0].Type == "symbol" {
+		switch list[0].Val.(string) {
+		case "def!":
+			return evalDef(list[1:], env)
+		case "let*":
+			return evalLet(list[1:], env)
 		}
-		if list[1].Type != "symbol" {
-			panic("def! requires a symbol as first argument")
-		}
-		v := Eval(list[2], env)
-		env.Set(list[1].Val.(string), v)
-		return v
-	}
-
-	// let*
-	if list[0].Type == "symbol" && list[0].Val.(string) == "let*" {
-		letEnv := NewEnv(env)
-		if len(list) != 3 {
-			panic("let* requires two arguments")
-		}
-		if list[1].Type != "list" {
-			panic("let* requires a list as first argument")
-		}
-		bindings := list[1].Val.([]ast.Sexpr)
-		if len(bindings)%2 != 0 {
-			panic("let* requires an even number of forms in bindings")
-		}
-		for i := 0; i < len(bindings); i += 2 {
-			if bindings[i].Type != "symbol" {
-				panic("let* bindings must be symbols")
-			}
-			letEnv.Set(bindings[i].Val.(string), Eval(bindings[i+1], letEnv))
-		}
-
-		return Eval(list[2], letEnv)
 	}
 
 	// function call
