@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/elh/mal-go/internal/pkg/ast"
+	"github.com/elh/mal-go/internal/pkg/evaluator"
 	"github.com/elh/mal-go/internal/pkg/printer"
 	"github.com/elh/mal-go/internal/pkg/reader"
 )
@@ -21,8 +22,8 @@ func read(str string) ast.Sexpr {
 	return reader.ReadStr(str)
 }
 
-func eval(expr ast.Sexpr) ast.Sexpr {
-	return expr
+func eval(expr ast.Sexpr, env evaluator.Env) ast.Sexpr {
+	return evaluator.Eval(expr, env)
 }
 
 func print(expr ast.Sexpr) string {
@@ -39,7 +40,7 @@ func rep(str string) (out string) {
 		}
 	}()
 
-	return print(eval(read(str)))
+	return print(eval(read(str), evaluator.GlobalEnv))
 }
 
 func main() {

@@ -90,7 +90,7 @@ func readAtom(reader *Reader) ast.Sexpr {
 	if token == "" {
 		panic("expected atom")
 	}
-	i, err := strconv.Atoi(token)
+	i, err := strconv.ParseInt(token, 10, 0)
 	if err != nil {
 		return ast.Sexpr{
 			Type: "symbol",
