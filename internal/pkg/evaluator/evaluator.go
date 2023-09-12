@@ -66,6 +66,14 @@ func evalIf(args []ast.Sexpr, env *Env) ast.Sexpr {
 	return Eval(args[1], env)
 }
 
+func evalDo(args []ast.Sexpr, env *Env) ast.Sexpr {
+	var result ast.Sexpr
+	for _, arg := range args {
+		result = Eval(arg, env)
+	}
+	return result
+}
+
 // Eval evaluates an s-expression in the given environment.
 func Eval(expr ast.Sexpr, env *Env) ast.Sexpr {
 	if expr.Type != "list" {
@@ -86,6 +94,8 @@ func Eval(expr ast.Sexpr, env *Env) ast.Sexpr {
 			return evalLet(args, env)
 		case "if":
 			return evalIf(args, env)
+		case "do":
+			return evalDo(args, env)
 		}
 	}
 
