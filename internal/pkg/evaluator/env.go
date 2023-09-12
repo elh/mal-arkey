@@ -4,15 +4,39 @@ import "github.com/elh/mal-go/internal/pkg/ast"
 
 // Env is a map of symbols to bound values.
 type Env struct {
-	Outer *Env
-	Data  map[string]ast.Sexpr
+	outer *Env
+	data  map[string]ast.Sexpr
+}
+
+// NewEnv creates a new environment with the given outer environment.
+func NewEnv(outer *Env) Env {
+	return Env{
+		outer: outer,
+		data:  map[string]ast.Sexpr{},
+	}
+}
+
+// Set binds a symbol to a value in the current environment.
+func (e *Env) Set(symbol string, value ast.Sexpr) {
+	e.data[symbol] = value
+}
+
+// Get returns the value bound to the given symbol in the environment.
+func (e *Env) Get(symbol string) ast.Sexpr {
+	if val, ok := e.data[symbol]; ok {
+		return val
+	}
+	if e.outer != nil {
+		return e.outer.Get(symbol)
+	}
+	panic("symbol not found")
 }
 
 // GlobalEnv creates a new default global environment.
-func GlobalEnv() Env {
-	return Env{
-		Outer: nil,
-		Data: map[string]ast.Sexpr{
+func GlobalEnv() *Env {
+	return &Env{
+		outer: nil,
+		data: map[string]ast.Sexpr{
 			"+": {Type: "function", Val: func(args ...ast.Sexpr) ast.Sexpr {
 				var sum int64
 				for _, arg := range args {
