@@ -12,7 +12,7 @@ func evalAST(sexpr ast.Sexpr, env Env) ast.Sexpr {
 		}
 		return ast.Sexpr{Type: "list", Val: elems}
 	case "symbol":
-		v, ok := env[sexpr.Val.(string)]
+		v, ok := env.Data[sexpr.Val.(string)]
 		if !ok {
 			panic("symbol not found")
 		}
