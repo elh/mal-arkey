@@ -10,11 +10,13 @@ import (
 
 var tokenRegex = regexp.MustCompile(`[\s,]*(~@|[\[\]{}()'` + "`" + `~^@]|"(?:\\.|[^\\"])*"?|;.*|[^\s\[\]{}('"` + "`" + `,;)]*)`)
 
+// Reader reads tokens.
 type Reader struct {
 	Tokens   []string
 	Position int
 }
 
+// Next returns the next token and advances the reader.
 func (r *Reader) Next() string {
 	if r.Position >= len(r.Tokens) {
 		return ""
@@ -23,6 +25,7 @@ func (r *Reader) Next() string {
 	return r.Tokens[r.Position-1]
 }
 
+// Peek returns the next token without advancing the reader.
 func (r *Reader) Peek() string {
 	if r.Position >= len(r.Tokens) {
 		return ""
@@ -30,6 +33,7 @@ func (r *Reader) Peek() string {
 	return r.Tokens[r.Position]
 }
 
+// Tokenize splits a input text into tokens.
 func Tokenize(input string) []string {
 	matches := tokenRegex.FindAllStringSubmatch(input, -1)
 	var out []string
@@ -52,6 +56,7 @@ func Tokenize(input string) []string {
 	return out
 }
 
+// ReadStr parses input text into a sexpr.
 func ReadStr(input string) ast.Sexpr {
 	reader := &Reader{Tokens: Tokenize(input)}
 	s := ReadForm(reader)
@@ -61,7 +66,7 @@ func ReadStr(input string) ast.Sexpr {
 	return s
 }
 
-func ReadList(reader *Reader) ast.Sexpr {
+func readList(reader *Reader) ast.Sexpr {
 	if reader.Peek() != "(" {
 		panic("expected '('")
 	}
@@ -80,7 +85,7 @@ func ReadList(reader *Reader) ast.Sexpr {
 }
 
 // only currently supporting integers and symbols
-func ReadAtom(reader *Reader) ast.Sexpr {
+func readAtom(reader *Reader) ast.Sexpr {
 	token := reader.Next()
 	if token == "" {
 		panic("expected atom")
@@ -98,11 +103,11 @@ func ReadAtom(reader *Reader) ast.Sexpr {
 	}
 }
 
-// only currently supporting lists and atoms
+// ReadForm parses the next sexpr from the reader.
+// Currently only supporting lists and atoms.
 func ReadForm(reader *Reader) ast.Sexpr {
 	if reader.Peek() == "(" {
-		return ReadList(reader)
-	} else {
-		return ReadAtom(reader)
+		return readList(reader)
 	}
+	return readAtom(reader)
 }

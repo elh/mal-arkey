@@ -7,6 +7,7 @@ import (
 	"github.com/elh/mal-go/internal/pkg/ast"
 )
 
+// PrintStr returns a string representation of the given sexpr.
 func PrintStr(s ast.Sexpr) string {
 	switch s.Type {
 	case "symbol":

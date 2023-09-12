@@ -21,3 +21,8 @@ bin:
 	@cp bin/mal bin/step8_macros
 	@cp bin/mal bin/step9_try
 	@cp bin/mal bin/stepA_mal
+
+.PHONY: lint
+lint:
+	@if golint ./... 2>&1 | grep '^'; then exit 1; fi; # Requires comments for exported functions
+	@golangci-lint run
