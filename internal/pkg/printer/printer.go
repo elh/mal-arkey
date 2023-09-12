@@ -10,10 +10,10 @@ import (
 // PrintStr returns a string representation of the given sexpr.
 func PrintStr(s ast.Sexpr) string {
 	switch s.Type {
-	case "symbol":
-		return s.Val.(string)
-	case "integer":
-		return fmt.Sprintf("%d", s.Val)
+	case "symbol", "integer", "float", "boolean":
+		return fmt.Sprintf("%v", s.Val)
+	case "nil":
+		return "nil"
 	case "list":
 		var elements []string
 		for _, element := range s.Val.([]ast.Sexpr) {

@@ -90,16 +90,40 @@ func readAtom(reader *Reader) ast.Sexpr {
 	if token == "" {
 		panic("expected atom")
 	}
-	i, err := strconv.ParseInt(token, 10, 0)
-	if err != nil {
+
+	if i, err := strconv.ParseInt(token, 10, 0); err == nil {
+		return ast.Sexpr{
+			Type: "integer",
+			Val:  i,
+		}
+	}
+	if f, err := strconv.ParseFloat(token, 64); err == nil {
+		return ast.Sexpr{
+			Type: "float",
+			Val:  f,
+		}
+	}
+	switch token {
+	case "true":
+		return ast.Sexpr{
+			Type: "boolean",
+			Val:  true,
+		}
+	case "false":
+		return ast.Sexpr{
+			Type: "boolean",
+			Val:  false,
+		}
+	case "nil":
+		return ast.Sexpr{
+			Type: "nil",
+			Val:  nil,
+		}
+	default:
 		return ast.Sexpr{
 			Type: "symbol",
 			Val:  token,
 		}
-	}
-	return ast.Sexpr{
-		Type: "integer",
-		Val:  i,
 	}
 }
 

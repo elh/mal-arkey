@@ -5,6 +5,9 @@ package ast
 // * "list"     - []ast.Sexpr
 // * "symbol"   - string
 // * "integer"  - int64
+// * "float"    - float64
+// * "boolean"  - bool
+// * "nil"      - nil
 // * "function" - func(args ...ast.Sexpr) ast.Sexpr
 type Sexpr struct {
 	Type string
