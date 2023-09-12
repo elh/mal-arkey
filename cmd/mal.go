@@ -40,7 +40,7 @@ func rep(str string) (out string) {
 		}
 	}()
 
-	return print(eval(read(str), evaluator.GlobalEnv))
+	return print(eval(read(str), evaluator.GlobalEnv()))
 }
 
 func main() {
