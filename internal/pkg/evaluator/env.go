@@ -1,6 +1,10 @@
 package evaluator
 
-import "github.com/elh/mal-go/internal/pkg/ast"
+import (
+	"fmt"
+
+	"github.com/elh/mal-go/internal/pkg/ast"
+)
 
 // Env is a map of symbols to bound values.
 type Env struct {
@@ -9,8 +13,8 @@ type Env struct {
 }
 
 // NewEnv creates a new environment with the given outer environment.
-func NewEnv(outer *Env) Env {
-	return Env{
+func NewEnv(outer *Env) *Env {
+	return &Env{
 		outer: outer,
 		data:  map[string]ast.Sexpr{},
 	}
@@ -29,7 +33,7 @@ func (e *Env) Get(symbol string) ast.Sexpr {
 	if e.outer != nil {
 		return e.outer.Get(symbol)
 	}
-	panic("symbol not found")
+	panic(fmt.Sprintf("symbol '%v' not found", symbol))
 }
 
 // GlobalEnv creates a new default global environment.
