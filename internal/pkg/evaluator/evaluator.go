@@ -74,6 +74,34 @@ func evalDo(args []ast.Sexpr, env *Env) ast.Sexpr {
 	return result
 }
 
+func evalFn(evalArgs []ast.Sexpr, env *Env) ast.Sexpr {
+	if len(evalArgs) != 2 {
+		panic("fn* requires two arguments")
+	}
+	if evalArgs[0].Type != "list" {
+		panic("fn* requires a list as first argument")
+	}
+	params := evalArgs[0].Val.([]ast.Sexpr)
+	for _, param := range params {
+		if param.Type != "symbol" {
+			panic("fn* parameters must be symbols")
+		}
+	}
+	body := evalArgs[1]
+
+	return ast.Sexpr{Type: "function", Val: func(args ...ast.Sexpr) ast.Sexpr {
+		if len(params) != len(args) {
+			panic("wrong number of arguments")
+		}
+		bindings := map[string]ast.Sexpr{}
+		for i, arg := range args {
+			bindings[params[i].Val.(string)] = Eval(arg, env)
+		}
+		fnEnv := NewEnv(env, &bindings)
+		return Eval(body, fnEnv)
+	}}
+}
+
 // Eval evaluates an s-expression in the given environment.
 func Eval(expr ast.Sexpr, env *Env) ast.Sexpr {
 	if expr.Type != "list" {
@@ -96,6 +124,8 @@ func Eval(expr ast.Sexpr, env *Env) ast.Sexpr {
 			return evalIf(args, env)
 		case "do":
 			return evalDo(args, env)
+		case "fn*":
+			return evalFn(args, env)
 		}
 	}
 
