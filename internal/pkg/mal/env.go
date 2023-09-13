@@ -11,13 +11,18 @@ type Env struct {
 }
 
 // NewEnv creates a new environment with the given outer environment.
-func NewEnv(outer *Env, bindings *map[string]Sexpr) *Env {
-	if bindings == nil {
-		bindings = &map[string]Sexpr{}
+func NewEnv(outer *Env, bindSymbols []Sexpr, bindValues []Sexpr) *Env {
+	bindings := map[string]Sexpr{}
+	if len(bindSymbols) != len(bindValues) {
+		panic("wrong number of binding symbols and values")
 	}
+	for i, v := range bindValues {
+		bindings[bindSymbols[i].Val.(string)] = Eval(v, outer)
+	}
+
 	return &Env{
 		outer:    outer,
-		bindings: *bindings,
+		bindings: bindings,
 	}
 }
 
