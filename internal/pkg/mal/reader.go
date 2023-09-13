@@ -1,11 +1,9 @@
-package reader
+package mal
 
 import (
 	"regexp"
 	"strconv"
 	"strings"
-
-	"github.com/elh/mal-go/internal/pkg/ast"
 )
 
 var tokenRegex = regexp.MustCompile(`[\s,]*(~@|[\[\]{}()'` + "`" + `~^@]|"(?:\\.|[^\\"])*"?|;.*|[^\s\[\]{}('"` + "`" + `,;)]*)`)
@@ -57,7 +55,7 @@ func Tokenize(input string) []string {
 }
 
 // ReadStr parses input text into a sexpr.
-func ReadStr(input string) ast.Sexpr {
+func ReadStr(input string) Sexpr {
 	reader := &Reader{Tokens: Tokenize(input)}
 	s := ReadForm(reader)
 	if reader.Peek() != "" {
@@ -66,61 +64,61 @@ func ReadStr(input string) ast.Sexpr {
 	return s
 }
 
-func readList(reader *Reader) ast.Sexpr {
+func readList(reader *Reader) Sexpr {
 	if reader.Peek() != "(" {
 		panic("expected '('")
 	}
 	reader.Next()
 
-	elements := []ast.Sexpr{}
+	elements := []Sexpr{}
 	for reader.Peek() != ")" {
 		elements = append(elements, ReadForm(reader))
 	}
 	reader.Next()
 
-	return ast.Sexpr{
+	return Sexpr{
 		Type: "list",
 		Val:  elements,
 	}
 }
 
 // only currently supporting integers and symbols
-func readAtom(reader *Reader) ast.Sexpr {
+func readAtom(reader *Reader) Sexpr {
 	token := reader.Next()
 	if token == "" {
 		panic("expected atom")
 	}
 
 	if i, err := strconv.ParseInt(token, 10, 0); err == nil {
-		return ast.Sexpr{
+		return Sexpr{
 			Type: "integer",
 			Val:  i,
 		}
 	}
 	if f, err := strconv.ParseFloat(token, 64); err == nil {
-		return ast.Sexpr{
+		return Sexpr{
 			Type: "float",
 			Val:  f,
 		}
 	}
 	switch token {
 	case "true":
-		return ast.Sexpr{
+		return Sexpr{
 			Type: "boolean",
 			Val:  true,
 		}
 	case "false":
-		return ast.Sexpr{
+		return Sexpr{
 			Type: "boolean",
 			Val:  false,
 		}
 	case "nil":
-		return ast.Sexpr{
+		return Sexpr{
 			Type: "nil",
 			Val:  nil,
 		}
 	default:
-		return ast.Sexpr{
+		return Sexpr{
 			Type: "symbol",
 			Val:  token,
 		}
@@ -129,7 +127,7 @@ func readAtom(reader *Reader) ast.Sexpr {
 
 // ReadForm parses the next sexpr from the reader.
 // Currently only supporting lists and atoms.
-func ReadForm(reader *Reader) ast.Sexpr {
+func ReadForm(reader *Reader) Sexpr {
 	if reader.Peek() == "(" {
 		return readList(reader)
 	}

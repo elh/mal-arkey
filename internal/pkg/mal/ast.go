@@ -1,4 +1,4 @@
-package ast
+package mal
 
 // Sexpr is an s-expression with an associated type.
 // Valid types:

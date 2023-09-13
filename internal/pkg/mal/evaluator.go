@@ -1,16 +1,14 @@
-package evaluator
-
-import "github.com/elh/mal-go/internal/pkg/ast"
+package mal
 
 // TODO: change? I'm following the instructions from mal but I don't get this factoring.
-func evalAST(sexpr ast.Sexpr, env *Env) ast.Sexpr {
+func evalAST(sexpr Sexpr, env *Env) Sexpr {
 	switch sexpr.Type {
 	case "list":
-		var elems []ast.Sexpr
-		for _, elem := range sexpr.Val.([]ast.Sexpr) {
+		var elems []Sexpr
+		for _, elem := range sexpr.Val.([]Sexpr) {
 			elems = append(elems, Eval(elem, env))
 		}
-		return ast.Sexpr{Type: "list", Val: elems}
+		return Sexpr{Type: "list", Val: elems}
 	case "symbol":
 		return env.Get(sexpr.Val.(string))
 	default:
@@ -18,7 +16,7 @@ func evalAST(sexpr ast.Sexpr, env *Env) ast.Sexpr {
 	}
 }
 
-func evalDef(args []ast.Sexpr, env *Env) ast.Sexpr {
+func evalDef(args []Sexpr, env *Env) Sexpr {
 	if len(args) != 2 {
 		panic("def! requires two arguments")
 	}
@@ -31,7 +29,7 @@ func evalDef(args []ast.Sexpr, env *Env) ast.Sexpr {
 }
 
 // With TCO. Return unevaluated body and new environment.
-func evalLet(args []ast.Sexpr, env *Env) (ast.Sexpr, *Env) {
+func evalLet(args []Sexpr, env *Env) (Sexpr, *Env) {
 	letEnv := NewEnv(env, nil)
 	if len(args) != 2 {
 		panic("let* requires two arguments")
@@ -39,7 +37,7 @@ func evalLet(args []ast.Sexpr, env *Env) (ast.Sexpr, *Env) {
 	if args[0].Type != "list" {
 		panic("let* requires a list as first argument")
 	}
-	bindings := args[0].Val.([]ast.Sexpr)
+	bindings := args[0].Val.([]Sexpr)
 	if len(bindings)%2 != 0 {
 		panic("let* requires an even number of forms in bindings")
 	}
@@ -54,7 +52,7 @@ func evalLet(args []ast.Sexpr, env *Env) (ast.Sexpr, *Env) {
 }
 
 // With TCO. Return unevaluated if/else branch form
-func evalIf(args []ast.Sexpr, env *Env) ast.Sexpr {
+func evalIf(args []Sexpr, env *Env) Sexpr {
 	if len(args) != 2 && len(args) != 3 {
 		panic("if requires three (or two) arguments")
 	}
@@ -63,27 +61,27 @@ func evalIf(args []ast.Sexpr, env *Env) ast.Sexpr {
 		if len(args) == 3 {
 			return args[2]
 		}
-		return ast.Sexpr{Type: "nil", Val: nil}
+		return Sexpr{Type: "nil", Val: nil}
 	}
 	return args[1]
 }
 
 // With TCO. Return unevaluated final form
-func evalDo(args []ast.Sexpr, env *Env) ast.Sexpr {
+func evalDo(args []Sexpr, env *Env) Sexpr {
 	for _, arg := range args[:len(args)-1] {
 		Eval(arg, env)
 	}
 	return args[len(args)-1]
 }
 
-func evalFn(evalArgs []ast.Sexpr, env *Env) ast.Sexpr {
+func evalFn(evalArgs []Sexpr, env *Env) Sexpr {
 	if len(evalArgs) != 2 {
 		panic("fn* requires two arguments")
 	}
 	if evalArgs[0].Type != "list" {
 		panic("fn* requires a list as first argument")
 	}
-	params := evalArgs[0].Val.([]ast.Sexpr)
+	params := evalArgs[0].Val.([]Sexpr)
 	for _, param := range params {
 		if param.Type != "symbol" {
 			panic("fn* parameters must be symbols")
@@ -91,11 +89,11 @@ func evalFn(evalArgs []ast.Sexpr, env *Env) ast.Sexpr {
 	}
 	body := evalArgs[1]
 
-	return ast.Sexpr{Type: "function", Val: func(args ...ast.Sexpr) ast.Sexpr {
+	return Sexpr{Type: "function", Val: func(args ...Sexpr) Sexpr {
 		if len(params) != len(args) {
 			panic("wrong number of arguments")
 		}
-		bindings := map[string]ast.Sexpr{}
+		bindings := map[string]Sexpr{}
 		for i, arg := range args {
 			bindings[params[i].Val.(string)] = Eval(arg, env)
 		}
@@ -105,13 +103,13 @@ func evalFn(evalArgs []ast.Sexpr, env *Env) ast.Sexpr {
 }
 
 // Eval evaluates an s-expression in the given environment.
-func Eval(expr ast.Sexpr, env *Env) ast.Sexpr {
+func Eval(expr Sexpr, env *Env) Sexpr {
 	// Tail call optimization prevents nested function calls.
 	for {
 		if expr.Type != "list" {
 			return evalAST(expr, env)
 		}
-		list := expr.Val.([]ast.Sexpr)
+		list := expr.Val.([]Sexpr)
 		if len(list) == 0 {
 			return expr
 		}
@@ -138,10 +136,10 @@ func Eval(expr ast.Sexpr, env *Env) ast.Sexpr {
 
 		// function call
 		evaluatedList := evalAST(expr, env)
-		elems := evaluatedList.Val.([]ast.Sexpr)
+		elems := evaluatedList.Val.([]Sexpr)
 		switch elems[0].Type {
 		case "function":
-			fn := elems[0].Val.(func(args ...ast.Sexpr) ast.Sexpr)
+			fn := elems[0].Val.(func(args ...Sexpr) Sexpr)
 			return fn(elems[1:]...)
 		case "function-tco":
 			panic("TODO: unimplemented")

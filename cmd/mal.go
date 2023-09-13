@@ -6,10 +6,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/elh/mal-go/internal/pkg/ast"
-	"github.com/elh/mal-go/internal/pkg/evaluator"
-	"github.com/elh/mal-go/internal/pkg/printer"
-	"github.com/elh/mal-go/internal/pkg/reader"
+	m "github.com/elh/mal-go/internal/pkg/mal"
 )
 
 func printError(err any) {
@@ -18,19 +15,19 @@ func printError(err any) {
 	fmt.Printf("%sError: %s%s", colorRed, err, colorReset)
 }
 
-func read(str string) ast.Sexpr {
-	return reader.ReadStr(str)
+func read(str string) m.Sexpr {
+	return m.ReadStr(str)
 }
 
-func eval(expr ast.Sexpr, env *evaluator.Env) ast.Sexpr {
-	return evaluator.Eval(expr, env)
+func eval(expr m.Sexpr, env *m.Env) m.Sexpr {
+	return m.Eval(expr, env)
 }
 
-func print(expr ast.Sexpr) string {
-	return printer.PrintStr(expr)
+func print(expr m.Sexpr) string {
+	return m.PrintStr(expr)
 }
 
-func rep(str string, env *evaluator.Env) (out string) {
+func rep(str string, env *m.Env) (out string) {
 	// read, eval, print functions panic
 	// recover here so that repl main loop can continue accepting all of stdin.
 	defer func() {
@@ -45,7 +42,7 @@ func rep(str string, env *evaluator.Env) (out string) {
 
 func main() {
 	reader := bufio.NewReader(os.Stdin)
-	env := evaluator.BuiltInEnv()
+	env := m.BuiltInEnv()
 	for {
 		fmt.Print("user> ")
 		input, err := reader.ReadString('\n')

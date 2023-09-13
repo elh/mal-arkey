@@ -1,14 +1,12 @@
-package printer
+package mal
 
 import (
 	"fmt"
 	"strings"
-
-	"github.com/elh/mal-go/internal/pkg/ast"
 )
 
 // PrintStr returns a string representation of the given sexpr.
-func PrintStr(s ast.Sexpr) string {
+func PrintStr(s Sexpr) string {
 	switch s.Type {
 	case "symbol", "integer", "float", "boolean":
 		return fmt.Sprintf("%v", s.Val)
@@ -16,7 +14,7 @@ func PrintStr(s ast.Sexpr) string {
 		return "nil"
 	case "list":
 		var elements []string
-		for _, element := range s.Val.([]ast.Sexpr) {
+		for _, element := range s.Val.([]Sexpr) {
 			elements = append(elements, PrintStr(element))
 		}
 		return fmt.Sprintf("(%s)", strings.Join(elements, " "))
