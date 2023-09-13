@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	m "github.com/elh/mal-go/internal/pkg/mal"
+	m "github.com/elh/mal-arkey/internal/pkg/mal"
 )
 
 func printError(err any) {
