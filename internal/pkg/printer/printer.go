@@ -20,7 +20,7 @@ func PrintStr(s ast.Sexpr) string {
 			elements = append(elements, PrintStr(element))
 		}
 		return fmt.Sprintf("(%s)", strings.Join(elements, " "))
-	case "function":
+	case "function", "function-tco":
 		return "#<function>"
 	default:
 		panic(fmt.Sprintf("cannot print unsupported type: %s", s.Type))

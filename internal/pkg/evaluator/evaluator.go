@@ -2,7 +2,7 @@ package evaluator
 
 import "github.com/elh/mal-go/internal/pkg/ast"
 
-// evalAST looks up symbols in the given environment. This facilitates a mutual recursion between Eval and evalAST.
+// TODO: change? I'm following the instructions from mal but I don't get this factoring.
 func evalAST(sexpr ast.Sexpr, env *Env) ast.Sexpr {
 	switch sexpr.Type {
 	case "list":
@@ -30,7 +30,8 @@ func evalDef(args []ast.Sexpr, env *Env) ast.Sexpr {
 	return v
 }
 
-func evalLet(args []ast.Sexpr, env *Env) ast.Sexpr {
+// With TCO. Return unevaluated body and new environment.
+func evalLet(args []ast.Sexpr, env *Env) (ast.Sexpr, *Env) {
 	letEnv := NewEnv(env, nil)
 	if len(args) != 2 {
 		panic("let* requires two arguments")
@@ -49,9 +50,10 @@ func evalLet(args []ast.Sexpr, env *Env) ast.Sexpr {
 		letEnv.Set(bindings[i].Val.(string), Eval(bindings[i+1], letEnv))
 	}
 
-	return Eval(args[1], letEnv)
+	return args[1], letEnv
 }
 
+// With TCO. Return unevaluated if/else branch form
 func evalIf(args []ast.Sexpr, env *Env) ast.Sexpr {
 	if len(args) != 2 && len(args) != 3 {
 		panic("if requires three (or two) arguments")
@@ -59,19 +61,19 @@ func evalIf(args []ast.Sexpr, env *Env) ast.Sexpr {
 	cond := Eval(args[0], env)
 	if (cond.Type == "boolean" && !cond.Val.(bool)) || (cond.Type == "nil") {
 		if len(args) == 3 {
-			return Eval(args[2], env)
+			return args[2]
 		}
 		return ast.Sexpr{Type: "nil", Val: nil}
 	}
-	return Eval(args[1], env)
+	return args[1]
 }
 
+// With TCO. Return unevaluated final form
 func evalDo(args []ast.Sexpr, env *Env) ast.Sexpr {
-	var result ast.Sexpr
-	for _, arg := range args {
-		result = Eval(arg, env)
+	for _, arg := range args[:len(args)-1] {
+		Eval(arg, env)
 	}
-	return result
+	return args[len(args)-1]
 }
 
 func evalFn(evalArgs []ast.Sexpr, env *Env) ast.Sexpr {
@@ -104,38 +106,47 @@ func evalFn(evalArgs []ast.Sexpr, env *Env) ast.Sexpr {
 
 // Eval evaluates an s-expression in the given environment.
 func Eval(expr ast.Sexpr, env *Env) ast.Sexpr {
-	if expr.Type != "list" {
-		return evalAST(expr, env)
-	}
-	list := expr.Val.([]ast.Sexpr)
-	if len(list) == 0 {
-		return expr
-	}
+	// Tail call optimization prevents nested function calls.
+	for {
+		if expr.Type != "list" {
+			return evalAST(expr, env)
+		}
+		list := expr.Val.([]ast.Sexpr)
+		if len(list) == 0 {
+			return expr
+		}
 
-	// special forms
-	if list[0].Type == "symbol" {
-		args := list[1:]
-		switch list[0].Val.(string) {
-		case "def!":
-			return evalDef(args, env)
-		case "let*":
-			return evalLet(args, env)
-		case "if":
-			return evalIf(args, env)
-		case "do":
-			return evalDo(args, env)
-		case "fn*":
-			return evalFn(args, env)
+		// special forms
+		if list[0].Type == "symbol" {
+			args := list[1:]
+			switch list[0].Val.(string) {
+			case "def!":
+				return evalDef(args, env)
+			case "let*":
+				expr, env = evalLet(args, env)
+				continue
+			case "if":
+				expr = evalIf(args, env)
+				continue
+			case "do":
+				expr = evalDo(args, env)
+				continue
+			case "fn*":
+				return evalFn(args, env)
+			}
+		}
+
+		// function call
+		evaluatedList := evalAST(expr, env)
+		elems := evaluatedList.Val.([]ast.Sexpr)
+		switch elems[0].Type {
+		case "function":
+			fn := elems[0].Val.(func(args ...ast.Sexpr) ast.Sexpr)
+			return fn(elems[1:]...)
+		case "function-tco":
+			panic("TODO: unimplemented")
+		default:
+			panic("first element of list must be a function")
 		}
 	}
-
-	// function call
-	evaluatedList := evalAST(expr, env)
-	elems := evaluatedList.Val.([]ast.Sexpr)
-	if elems[0].Type != "function" {
-		panic("first element of list must be a function")
-	}
-
-	fn := elems[0].Val.(func(args ...ast.Sexpr) ast.Sexpr)
-	return fn(elems[1:]...)
 }
