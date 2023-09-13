@@ -66,7 +66,7 @@ func evalIf(args []Sexpr, env *Env) Sexpr {
 	return args[1]
 }
 
-// With TCO. Return unevaluated final form
+// With TCO. Return unevaluated final form.
 func evalDo(args []Sexpr, env *Env) Sexpr {
 	for _, arg := range args[:len(args)-1] {
 		Eval(arg, env)
@@ -74,6 +74,7 @@ func evalDo(args []Sexpr, env *Env) Sexpr {
 	return args[len(args)-1]
 }
 
+// With TCO. Return a function-tco value.
 func evalFn(evalArgs []Sexpr, env *Env) Sexpr {
 	if len(evalArgs) != 2 {
 		panic("fn* requires two arguments")
@@ -89,17 +90,22 @@ func evalFn(evalArgs []Sexpr, env *Env) Sexpr {
 	}
 	body := evalArgs[1]
 
-	return Sexpr{Type: "function", Val: func(args ...Sexpr) Sexpr {
-		if len(params) != len(args) {
-			panic("wrong number of arguments")
-		}
-		bindings := map[string]Sexpr{}
-		for i, arg := range args {
-			bindings[params[i].Val.(string)] = Eval(arg, env)
-		}
-		fnEnv := NewEnv(env, &bindings)
-		return Eval(body, fnEnv)
-	}}
+	return Sexpr{Type: "function-tco", Val: FunctionTCO{
+		AST:    body,
+		Params: params,
+		Env:    env,
+		Fn: func(args ...Sexpr) Sexpr {
+			if len(params) != len(args) {
+				panic("wrong number of arguments")
+			}
+			bindings := map[string]Sexpr{}
+			for i, arg := range args {
+				bindings[params[i].Val.(string)] = Eval(arg, env)
+			}
+			fnEnv := NewEnv(env, &bindings)
+			return Eval(body, fnEnv)
+		}},
+	}
 }
 
 // Eval evaluates an s-expression in the given environment.
@@ -142,7 +148,20 @@ func Eval(expr Sexpr, env *Env) Sexpr {
 			fn := elems[0].Val.(func(args ...Sexpr) Sexpr)
 			return fn(elems[1:]...)
 		case "function-tco":
-			panic("TODO: unimplemented")
+			args := elems[1:]
+			fn := elems[0].Val.(FunctionTCO)
+
+			if len(fn.Params) != len(args) {
+				panic("wrong number of arguments")
+			}
+			bindings := map[string]Sexpr{}
+			for i, arg := range args {
+				bindings[fn.Params[i].Val.(string)] = Eval(arg, env)
+			}
+
+			expr = fn.AST
+			env = NewEnv(fn.Env, &bindings)
+			continue
 		default:
 			panic("first element of list must be a function")
 		}

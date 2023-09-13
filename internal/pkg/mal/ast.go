@@ -2,19 +2,27 @@ package mal
 
 // Sexpr is an s-expression with an associated type.
 // Valid types:
-// * "list"         - []ast.Sexpr
+// * "list"         - []Sexpr
 // * "symbol"       - string
 // * "integer"      - int64
 // * "float"        - float64
 // * "boolean"      - bool
 // * "nil"          - nil
-// * "function"     - func(args ...ast.Sexpr) ast.Sexpr
+// * "function"     - func(args ...Sexpr) Sexpr
 // * "function-tco" - {
-//   - ast:    ast.Sexpr
-//   - params: ast.Sexpr
-//   - env:    *evaluator.Env
-//   - fn:     func(args ...ast.Sexpr) ast.Sexpr }
+//   - AST:    Sexpr
+//   - Params: Sexpr
+//   - Env:    *Env
+//   - Fn:     func(args ...Sexpr) Sexpr }
 type Sexpr struct {
 	Type string
 	Val  interface{}
+}
+
+// FunctionTCO is a `fn*`-defined function that can be evaluated in a TCO style.
+type FunctionTCO struct {
+	AST    Sexpr
+	Params []Sexpr
+	Env    *Env
+	Fn     func(args ...Sexpr) Sexpr
 }
