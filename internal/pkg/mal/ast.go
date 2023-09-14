@@ -4,6 +4,7 @@ package mal
 // Valid types:
 // * "list"         - []Sexpr
 // * "symbol"       - string
+// * "string"       - string
 // * "integer"      - int64
 // * "float"        - float64
 // * "boolean"      - bool

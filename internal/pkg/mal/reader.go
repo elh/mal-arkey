@@ -101,6 +101,17 @@ func readAtom(reader *Reader) Sexpr {
 			Val:  f,
 		}
 	}
+	if strings.HasPrefix(token, "\"") {
+		str := token[1 : len(token)-1]
+		str = strings.Replace(str, "\\\"", "\"", -1)
+		str = strings.Replace(str, "\\n", "\n", -1)
+		str = strings.Replace(str, "\\\\", "\\", -1)
+		return Sexpr{
+			Type: "string",
+			Val:  str,
+		}
+	}
+
 	switch token {
 	case "true":
 		return Sexpr{

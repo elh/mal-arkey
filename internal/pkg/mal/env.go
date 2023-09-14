@@ -2,6 +2,7 @@ package mal
 
 import (
 	"fmt"
+	"os"
 )
 
 // Env is a map of symbols to bound values.
@@ -186,6 +187,22 @@ func BuiltInEnv() *Env {
 					return Sexpr{Type: "boolean", Val: true}
 				}
 				return Sexpr{Type: "boolean", Val: false}
+			}},
+			"read-string": {Type: "function", Val: func(args ...Sexpr) Sexpr {
+				if len(args) != 1 {
+					panic("wrong number of arguments. `read-string` requires 1 arguments")
+				}
+				return ReadStr(args[0].Val.(string))
+			}},
+			"slurp": {Type: "function", Val: func(args ...Sexpr) Sexpr {
+				if len(args) != 1 {
+					panic("wrong number of arguments. `slurp` requires 1 arguments")
+				}
+				s, err := os.ReadFile(args[0].Val.(string))
+				if err != nil {
+					panic(fmt.Sprintf("error reading file: %v", err))
+				}
+				return Sexpr{Type: "string", Val: string(s)}
 			}},
 		},
 	}

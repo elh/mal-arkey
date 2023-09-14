@@ -8,6 +8,12 @@ import (
 // PrintStr returns a string representation of the given sexpr.
 func PrintStr(s Sexpr) string {
 	switch s.Type {
+	case "string":
+		str := s.Val.(string)
+		str = strings.Replace(str, "\\", "\\\\", -1)
+		str = strings.Replace(str, "\"", "\\\"", -1)
+		str = strings.Replace(str, "\n", "\\n", -1)
+		return fmt.Sprintf("\"%s\"", str)
 	case "symbol", "integer", "float", "boolean":
 		return fmt.Sprintf("%v", s.Val)
 	case "nil":
