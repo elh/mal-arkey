@@ -46,7 +46,7 @@ func Tokenize(input string) []string {
 			}
 			cur = trimmed
 		}
-		if cur == "" {
+		if cur == "" || strings.HasPrefix(cur, ";") {
 			continue
 		}
 		out = append(out, cur)

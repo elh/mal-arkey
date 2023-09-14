@@ -3,6 +3,7 @@ package mal
 import (
 	"fmt"
 	"os"
+	"strings"
 )
 
 // Env is a map of symbols to bound values.
@@ -56,7 +57,7 @@ func asFloat(v interface{}) float64 {
 
 // BuiltInEnv creates a new default built-in namespace env.
 func BuiltInEnv() *Env {
-	return &Env{
+	env := &Env{
 		outer: nil,
 		bindings: map[string]Sexpr{
 			"+": {Type: "function", Val: func(args ...Sexpr) Sexpr {
@@ -101,11 +102,34 @@ func BuiltInEnv() *Env {
 				}
 				return Sexpr{Type: "integer", Val: quotient}
 			}},
-			"prn": {Type: "function", Val: func(args ...Sexpr) Sexpr {
-				if len(args) < 1 {
-					panic("wrong number of arguments. `prn` requires at least 1 arguments")
+			"pr-str": {Type: "function", Val: func(args ...Sexpr) Sexpr {
+				var strs []string
+				for _, arg := range args {
+					strs = append(strs, PrintStr(arg, true))
 				}
-				fmt.Println(PrintStr(args[0]))
+				return Sexpr{Type: "string", Val: strings.Join(strs, " ")}
+			}},
+			"str": {Type: "function", Val: func(args ...Sexpr) Sexpr {
+				var strs []string
+				for _, arg := range args {
+					strs = append(strs, PrintStr(arg, false))
+				}
+				return Sexpr{Type: "string", Val: strings.Join(strs, "")}
+			}},
+			"prn": {Type: "function", Val: func(args ...Sexpr) Sexpr {
+				var strs []string
+				for _, arg := range args {
+					strs = append(strs, PrintStr(arg, true))
+				}
+				fmt.Println(strings.Join(strs, " "))
+				return Sexpr{Type: "nil", Val: nil}
+			}},
+			"println": {Type: "function", Val: func(args ...Sexpr) Sexpr {
+				var strs []string
+				for _, arg := range args {
+					strs = append(strs, PrintStr(arg, false))
+				}
+				fmt.Println(strings.Join(strs, " "))
 				return Sexpr{Type: "nil", Val: nil}
 			}},
 			"list": {Type: "function", Val: func(args ...Sexpr) Sexpr {
@@ -204,12 +228,16 @@ func BuiltInEnv() *Env {
 				}
 				return Sexpr{Type: "string", Val: string(s)}
 			}},
-			"eval": {Type: "function", Val: func(args ...Sexpr) Sexpr {
-				if len(args) != 1 {
-					panic("wrong number of arguments. `eval` requires 1 arguments")
-				}
-				return Eval(args[0], nil) // don't create infinite loop instantiating envs
-			}},
 		},
 	}
+
+	// defined here to allow cyclic reference to env
+	env.bindings["eval"] = Sexpr{Type: "function", Val: func(args ...Sexpr) Sexpr {
+		if len(args) != 1 {
+			panic("wrong number of arguments. `eval` requires 1 arguments")
+		}
+		return Eval(args[0], env)
+	}}
+
+	return env
 }

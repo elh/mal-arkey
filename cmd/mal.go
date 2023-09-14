@@ -24,7 +24,7 @@ func eval(expr m.Sexpr, env *m.Env) m.Sexpr {
 }
 
 func print(expr m.Sexpr) string {
-	return m.PrintStr(expr)
+	return m.PrintStr(expr, true)
 }
 
 func rep(str string, env *m.Env) (out string) {
@@ -47,6 +47,7 @@ func main() {
 	// self-hosted fns
 	rep(`(def! load-file (fn* (f) (eval (read-string (str "(do " (slurp f) "\nnil)")))))`, env)
 
+	fmt.Println("Mal[-arkey] v0.0.1")
 	for {
 		fmt.Print("user> ")
 		input, err := reader.ReadString('\n')
