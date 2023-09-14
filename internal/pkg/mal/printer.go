@@ -29,6 +29,9 @@ func PrintStr(s Sexpr, readably bool) string {
 		return fmt.Sprintf("(%s)", strings.Join(elements, " "))
 	case "function", "function-tco":
 		return "#<function>"
+	case "atom":
+		id := s.Val.(string)
+		return fmt.Sprintf("(atom %s)", PrintStr(atoms[id], readably))
 	default:
 		panic(fmt.Sprintf("cannot print unsupported type: %s", s.Type))
 	}

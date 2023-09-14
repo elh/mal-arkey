@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 	"strings"
+
+	"github.com/google/uuid"
 )
 
 // Env is a map of symbols to bound values.
@@ -90,7 +92,7 @@ func BuiltInEnv() *Env {
 			}},
 			"/": {Type: "function", Val: func(args ...Sexpr) Sexpr {
 				if len(args) < 1 {
-					panic("wrong number of arguments. `/` requires at least 1 arguments")
+					panic("wrong number of arguments. `/` requires at least 1 argument")
 				}
 				var quotient int64 = 1
 				for i, arg := range args {
@@ -214,19 +216,77 @@ func BuiltInEnv() *Env {
 			}},
 			"read-string": {Type: "function", Val: func(args ...Sexpr) Sexpr {
 				if len(args) != 1 {
-					panic("wrong number of arguments. `read-string` requires 1 arguments")
+					panic("wrong number of arguments. `read-string` requires 1 argument")
 				}
 				return ReadStr(args[0].Val.(string))
 			}},
 			"slurp": {Type: "function", Val: func(args ...Sexpr) Sexpr {
 				if len(args) != 1 {
-					panic("wrong number of arguments. `slurp` requires 1 arguments")
+					panic("wrong number of arguments. `slurp` requires 1 argument")
 				}
 				s, err := os.ReadFile(args[0].Val.(string))
 				if err != nil {
 					panic(fmt.Sprintf("error reading file: %v", err))
 				}
 				return Sexpr{Type: "string", Val: string(s)}
+			}},
+			"atom": {Type: "function", Val: func(args ...Sexpr) Sexpr {
+				if len(args) != 1 {
+					panic("wrong number of arguments. `atom` requires 1 argument")
+				}
+				atomID := uuid.New().String()
+				atoms[atomID] = args[0]
+				return Sexpr{Type: "atom", Val: atomID}
+			}},
+			"atom?": {Type: "function", Val: func(args ...Sexpr) Sexpr {
+				if len(args) != 1 {
+					panic("wrong number of arguments. `atom?` requires 1 argument")
+				}
+				return Sexpr{Type: "boolean", Val: args[0].Type == "atom"}
+			}},
+			"deref": {Type: "function", Val: func(args ...Sexpr) Sexpr {
+				if len(args) != 1 {
+					panic("wrong number of arguments. `deref` requires 1 argument")
+				}
+				atomID := args[0].Val.(string)
+				return atoms[atomID]
+			}},
+			"reset!": {Type: "function", Val: func(args ...Sexpr) Sexpr {
+				if len(args) != 2 {
+					panic("wrong number of arguments. `reset!` requires 2 arguments")
+				}
+				if args[0].Type != "atom" {
+					panic("first argument to `reset!` must be an atom")
+				}
+				atomID := args[0].Val.(string)
+				atoms[atomID] = args[1]
+				return args[1]
+			}},
+			"swap!": {Type: "function", Val: func(args ...Sexpr) Sexpr {
+				if len(args) < 2 {
+					panic("wrong number of arguments. `swap!` requires at least 2 arguments")
+				}
+				if args[0].Type != "atom" {
+					panic("first argument to `swap!` must be an atom")
+				}
+
+				var fn func(...Sexpr) Sexpr
+				if args[1].Type == "function" {
+					fn = args[1].Val.(func(...Sexpr) Sexpr)
+				} else if args[1].Type == "function-tco" {
+					fn = args[1].Val.(FunctionTCO).Fn
+				} else {
+					panic("second argument to `swap!` must be a function")
+				}
+
+				atomID := args[0].Val.(string)
+				atomCur := atoms[atomID]
+
+				fnArgs := append([]Sexpr{atomCur}, args[2:]...)
+				val := fn(fnArgs...)
+
+				atoms[atomID] = val
+				return val
 			}},
 		},
 	}

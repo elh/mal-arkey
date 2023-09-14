@@ -9,6 +9,7 @@ package mal
 // * "float"        - float64
 // * "boolean"      - bool
 // * "nil"          - nil
+// * "atom"         - uuid atom table key. hack to dig myself out of non-pointer sexprs. i liked the immutability
 // * "function"     - func(args ...Sexpr) Sexpr
 // * "function-tco" - {
 //   - AST:    Sexpr
