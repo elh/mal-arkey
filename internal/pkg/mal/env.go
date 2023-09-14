@@ -204,6 +204,12 @@ func BuiltInEnv() *Env {
 				}
 				return Sexpr{Type: "string", Val: string(s)}
 			}},
+			"eval": {Type: "function", Val: func(args ...Sexpr) Sexpr {
+				if len(args) != 1 {
+					panic("wrong number of arguments. `eval` requires 1 arguments")
+				}
+				return Eval(args[0], nil) // don't create infinite loop instantiating envs
+			}},
 		},
 	}
 }

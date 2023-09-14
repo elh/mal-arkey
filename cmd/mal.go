@@ -43,6 +43,10 @@ func rep(str string, env *m.Env) (out string) {
 func main() {
 	reader := bufio.NewReader(os.Stdin)
 	env := m.BuiltInEnv()
+
+	// self-hosted fns
+	rep(`(def! load-file (fn* (f) (eval (read-string (str "(do " (slurp f) "\nnil)")))))`, env)
+
 	for {
 		fmt.Print("user> ")
 		input, err := reader.ReadString('\n')

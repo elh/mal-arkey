@@ -103,6 +103,9 @@ func evalFn(evalArgs []Sexpr, env *Env) Sexpr {
 
 // Eval evaluates an s-expression in the given environment.
 func Eval(expr Sexpr, env *Env) Sexpr {
+	if env == nil {
+		env = BuiltInEnv()
+	}
 	// Tail call optimization prevents nested function calls.
 	for {
 		if expr.Type != "list" {
