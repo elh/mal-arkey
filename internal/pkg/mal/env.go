@@ -288,6 +288,25 @@ func BuiltInEnv() *Env {
 				atoms[atomID] = val
 				return val
 			}},
+			"cons": {Type: "function", Val: func(args ...Sexpr) Sexpr {
+				if len(args) != 2 {
+					panic("wrong number of arguments. `cons` requires 2 arguments")
+				}
+				if args[1].Type != "list" {
+					panic("second argument to `cons` must be a list")
+				}
+				return Sexpr{Type: "list", Val: append([]Sexpr{args[0]}, args[1].Val.([]Sexpr)...)}
+			}},
+			"concat": {Type: "function", Val: func(args ...Sexpr) Sexpr {
+				var vals []Sexpr
+				for _, arg := range args {
+					if arg.Type != "list" {
+						panic("all arguments to `concat` must be lists")
+					}
+					vals = append(vals, arg.Val.([]Sexpr)...)
+				}
+				return Sexpr{Type: "list", Val: vals}
+			}},
 		},
 	}
 

@@ -101,6 +101,53 @@ func evalFn(evalArgs []Sexpr, env *Env) Sexpr {
 	}
 }
 
+func evalQuote(evalArgs []Sexpr) Sexpr {
+	if len(evalArgs) != 1 {
+		panic("quote requires 1 argument")
+	}
+	return evalArgs[0]
+}
+
+func quasiquote(ast Sexpr) Sexpr {
+	if ast.Type == "list" {
+		elems := ast.Val.([]Sexpr)
+		if len(elems) == 2 && elems[0].Type == "symbol" && elems[0].Val.(string) == "unquote" {
+			return elems[1]
+		}
+		if len(elems) == 0 {
+			return ast
+		}
+
+		elem := elems[0]
+		if elem.Type == "list" {
+			children := elem.Val.([]Sexpr)
+			if len(children) > 0 && children[0].Type == "symbol" && children[0].Val.(string) == "splice-unquote" {
+				return Sexpr{Type: "list", Val: []Sexpr{
+					{Type: "symbol", Val: "concat"},
+					children[1],
+					quasiquote(Sexpr{Type: "list", Val: elems[1:]})}}
+			}
+		}
+		return Sexpr{Type: "list", Val: []Sexpr{
+			{Type: "symbol", Val: "cons"},
+			quasiquote(elem),
+			quasiquote(Sexpr{Type: "list", Val: elems[1:]}),
+		}}
+	}
+	if ast.Type == "symbol" {
+		return Sexpr{Type: "list", Val: []Sexpr{
+			{Type: "symbol", Val: "quote"},
+			ast,
+		}}
+	}
+	return ast
+}
+
+// With TCO. Return an unevaluated quasiquote form.
+func evalQuasiquote(evalArgs []Sexpr, env *Env) Sexpr {
+	return quasiquote(evalArgs[0])
+}
+
 // Eval evaluates an s-expression in the given environment.
 func Eval(expr Sexpr, env *Env) Sexpr {
 	// Tail call optimization prevents nested function calls.
@@ -130,6 +177,11 @@ func Eval(expr Sexpr, env *Env) Sexpr {
 				continue
 			case "fn*":
 				return evalFn(args, env)
+			case "quote":
+				return evalQuote(args)
+			case "quasiquote":
+				expr = evalQuasiquote(args, env)
+				continue
 			}
 		}
 
