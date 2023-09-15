@@ -210,6 +210,8 @@ func try(expr Sexpr, env *Env) (value, exceptionSexpr *Sexpr) {
 	defer func() {
 		if r := recover(); r != nil {
 			switch v := r.(type) {
+			case string:
+				exceptionSexpr = &Sexpr{Type: "string", Val: v}
 			case error:
 				exceptionSexpr = &Sexpr{Type: "string", Val: v.Error()}
 			case Sexpr:

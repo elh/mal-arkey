@@ -57,6 +57,16 @@ func asFloat(v interface{}) float64 {
 	}
 }
 
+// get the underlying go function from a function Sexpr
+func getFn(expr Sexpr) func(...Sexpr) Sexpr {
+	if expr.Type == "function" {
+		return expr.Val.(func(...Sexpr) Sexpr)
+	} else if expr.Type == "function-tco" {
+		return expr.Val.(FunctionTCO).Fn
+	}
+	return nil
+}
+
 // BuiltInEnv creates a new default built-in namespace env.
 func BuiltInEnv() *Env {
 	env := &Env{
@@ -270,12 +280,8 @@ func BuiltInEnv() *Env {
 					panic("first argument to `swap!` must be an atom")
 				}
 
-				var fn func(...Sexpr) Sexpr
-				if args[1].Type == "function" {
-					fn = args[1].Val.(func(...Sexpr) Sexpr)
-				} else if args[1].Type == "function-tco" {
-					fn = args[1].Val.(FunctionTCO).Fn
-				} else {
+				fn := getFn(args[1])
+				if fn == nil {
 					panic("second argument to `swap!` must be a function")
 				}
 
@@ -307,11 +313,92 @@ func BuiltInEnv() *Env {
 				}
 				return Sexpr{Type: "list", Val: vals}
 			}},
+			"nth": {Type: "function", Val: func(args ...Sexpr) Sexpr {
+				if len(args) != 2 {
+					panic("wrong number of arguments. `nth` requires 2 arguments")
+				}
+				if args[0].Type != "list" {
+					panic("first argument to `nth` must be a list")
+				}
+				if args[1].Type != "integer" {
+					panic("second argument to `nth` must be an integer")
+				}
+				list := args[0].Val.([]Sexpr)
+				idx := args[1].Val.(int64)
+				if idx < 0 || idx >= int64(len(list)) {
+					panic("index out of bounds")
+				}
+				return list[idx]
+			}},
 			"throw": {Type: "function", Val: func(args ...Sexpr) Sexpr {
 				if len(args) != 1 {
 					panic("wrong number of arguments. `throw` requires 1 argument")
 				}
 				panic(args[0])
+			}},
+			"apply": {Type: "function", Val: func(args ...Sexpr) Sexpr {
+				if len(args) < 2 {
+					panic("wrong number of arguments. `apply` requires at least 2 arguments")
+				}
+				if args[0].Type != "function" && args[0].Type != "function-tco" {
+					panic("first argument to `apply` must be a function")
+				}
+				if args[len(args)-1].Type != "list" {
+					panic("last argument to `apply` must be a list")
+				}
+
+				fn := getFn(args[0])
+				if fn == nil {
+					panic("first argument to `apply` must be a function")
+				}
+				fnArgs := append(args[1:len(args)-1], args[len(args)-1].Val.([]Sexpr)...)
+				return fn(fnArgs...)
+			}},
+			"map": {Type: "function", Val: func(args ...Sexpr) Sexpr {
+				if len(args) != 2 {
+					panic("wrong number of arguments. `map` requires 2 arguments")
+				}
+				if args[0].Type != "function" && args[0].Type != "function-tco" {
+					panic("first argument to `apply` must be a function")
+				}
+				if args[1].Type != "list" {
+					panic("second argument to `apply` must be a list")
+				}
+
+				fn := getFn(args[0])
+				if fn == nil {
+					panic("first argument to `map` must be a function")
+				}
+
+				var res []Sexpr
+				for _, arg := range args[1].Val.([]Sexpr) {
+					res = append(res, fn(arg))
+				}
+				return Sexpr{Type: "list", Val: res}
+			}},
+			"nil?": {Type: "function", Val: func(args ...Sexpr) Sexpr {
+				if len(args) != 1 {
+					panic("wrong number of arguments. `nil?` requires 1 argument")
+				}
+				return Sexpr{Type: "boolean", Val: args[0].Type == "nil"}
+			}},
+			"true?": {Type: "function", Val: func(args ...Sexpr) Sexpr {
+				if len(args) != 1 {
+					panic("wrong number of arguments. `true?` requires 1 argument")
+				}
+				return Sexpr{Type: "boolean", Val: args[0].Type == "boolean" && args[0].Val.(bool)}
+			}},
+			"false?": {Type: "function", Val: func(args ...Sexpr) Sexpr {
+				if len(args) != 1 {
+					panic("wrong number of arguments. `false?` requires 1 argument")
+				}
+				return Sexpr{Type: "boolean", Val: args[0].Type == "boolean" && !args[0].Val.(bool)}
+			}},
+			"symbol?": {Type: "function", Val: func(args ...Sexpr) Sexpr {
+				if len(args) != 1 {
+					panic("wrong number of arguments. `symbol?` requires 1 argument")
+				}
+				return Sexpr{Type: "boolean", Val: args[0].Type == "symbol"}
 			}},
 		},
 	}
