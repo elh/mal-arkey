@@ -43,7 +43,7 @@ func (e *Env) Get(symbol string) (Sexpr, error) {
 	if e.outer != nil {
 		return e.outer.Get(symbol)
 	}
-	return Sexpr{}, fmt.Errorf("symbol '%v' not found", symbol)
+	return Sexpr{}, fmt.Errorf("'%v' not found", symbol)
 }
 
 func asFloat(v interface{}) float64 {
@@ -306,6 +306,12 @@ func BuiltInEnv() *Env {
 					vals = append(vals, arg.Val.([]Sexpr)...)
 				}
 				return Sexpr{Type: "list", Val: vals}
+			}},
+			"throw": {Type: "function", Val: func(args ...Sexpr) Sexpr {
+				if len(args) != 1 {
+					panic("wrong number of arguments. `throw` requires 1 argument")
+				}
+				panic(args[0])
 			}},
 		},
 	}

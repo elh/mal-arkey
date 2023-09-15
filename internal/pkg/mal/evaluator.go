@@ -206,6 +206,50 @@ func macroExpand(ast Sexpr, env *Env) Sexpr {
 	return ast
 }
 
+func try(expr Sexpr, env *Env) (value, exceptionSexpr *Sexpr) {
+	defer func() {
+		if r := recover(); r != nil {
+			switch v := r.(type) {
+			case error:
+				exceptionSexpr = &Sexpr{Type: "string", Val: v.Error()}
+			case Sexpr:
+				exceptionSexpr = &v
+			}
+		}
+	}()
+	out := Eval(expr, env)
+	return &out, nil
+}
+
+func evalTryCatch(args []Sexpr, env *Env) Sexpr {
+	if len(args) != 2 {
+		panic("try* requires two arguments")
+	}
+	if args[1].Type != "list" {
+		panic("try* requires a list as second argument")
+	}
+	catchForm := args[1].Val.([]Sexpr)
+	if len(catchForm) != 3 {
+		panic("try* requires a list of two elements as second argument")
+	}
+	if catchForm[0].Type != "symbol" {
+		panic("try* requires a symbol as first element of second argument")
+	}
+	if catchForm[0].Val.(string) != "catch*" {
+		panic("try* requires a symbol 'catch* as first element of second argument")
+	}
+	if catchForm[1].Type != "symbol" {
+		panic("try* requires a symbol as second element of second argument")
+	}
+
+	value, exception := try(args[0], env)
+	if exception == nil {
+		return *value
+	}
+	catchEnv := NewEnv(env, []Sexpr{catchForm[1]}, []Sexpr{*exception})
+	return Eval(catchForm[2], catchEnv)
+}
+
 // Eval evaluates an s-expression in the given environment.
 func Eval(expr Sexpr, env *Env) Sexpr {
 	// Tail call optimization prevents nested function calls.
@@ -251,6 +295,8 @@ func Eval(expr Sexpr, env *Env) Sexpr {
 				continue
 			case "macroexpand":
 				return macroExpand(args[0], env)
+			case "try*":
+				return evalTryCatch(args, env)
 			}
 		}
 
