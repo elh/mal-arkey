@@ -21,7 +21,7 @@ func NewEnv(outer *Env, bindSymbols []Sexpr, bindValues []Sexpr) *Env {
 		panic("wrong number of binding symbols and values")
 	}
 	for i, v := range bindValues {
-		bindings[bindSymbols[i].Val.(string)] = Eval(v, outer)
+		bindings[bindSymbols[i].Val.(string)] = v
 	}
 
 	return &Env{
@@ -36,14 +36,14 @@ func (e *Env) Set(symbol string, value Sexpr) {
 }
 
 // Get returns the value bound to the given symbol in the environment.
-func (e *Env) Get(symbol string) Sexpr {
+func (e *Env) Get(symbol string) (Sexpr, error) {
 	if val, ok := e.bindings[symbol]; ok {
-		return val
+		return val, nil
 	}
 	if e.outer != nil {
 		return e.outer.Get(symbol)
 	}
-	panic(fmt.Sprintf("symbol '%v' not found", symbol))
+	return Sexpr{}, fmt.Errorf("symbol '%v' not found", symbol)
 }
 
 func asFloat(v interface{}) float64 {

@@ -10,7 +10,11 @@ func evalAST(sexpr Sexpr, env *Env) Sexpr {
 		}
 		return Sexpr{Type: "list", Val: elems}
 	case "symbol":
-		return env.Get(sexpr.Val.(string))
+		s, err := env.Get(sexpr.Val.(string))
+		if err != nil {
+			panic(err)
+		}
+		return s
 	default:
 		return sexpr
 	}
@@ -97,7 +101,8 @@ func evalFn(evalArgs []Sexpr, env *Env) Sexpr {
 		Fn: func(args ...Sexpr) Sexpr {
 			fnEnv := NewEnv(env, params, args)
 			return Eval(body, fnEnv)
-		}},
+		},
+		IsMacro: false},
 	}
 }
 
@@ -148,6 +153,59 @@ func evalQuasiquote(evalArgs []Sexpr, env *Env) Sexpr {
 	return quasiquote(evalArgs[0])
 }
 
+func evalDefMacro(args []Sexpr, env *Env) Sexpr {
+	if len(args) != 2 {
+		panic("def! requires two arguments")
+	}
+	if args[0].Type != "symbol" {
+		panic("def! requires a symbol as first argument")
+	}
+	v := Eval(args[1], env)
+	if v.Type != "function-tco" {
+		panic("defmacro! requires a macro fn as second argument")
+	}
+	// need to re-wrap the non-ptr Sexpr to update IsMacro = true
+	f := v.Val.(FunctionTCO)
+	f.IsMacro = true
+	env.Set(args[0].Val.(string), Sexpr{Type: "function-tco", Val: f})
+	return v
+}
+
+func isMacroCall(ast Sexpr, env *Env) bool {
+	if ast.Type != "list" {
+		return false
+	}
+	list := ast.Val.([]Sexpr)
+	if len(list) == 0 {
+		return false
+	}
+	if list[0].Type != "symbol" {
+		return false
+	}
+	symbol := list[0].Val.(string)
+	v, err := env.Get(symbol)
+	if err != nil {
+		return false
+	}
+	if v.Type != "function-tco" {
+		return false
+	}
+	return v.Val.(FunctionTCO).IsMacro
+}
+
+func macroExpand(ast Sexpr, env *Env) Sexpr {
+	for isMacroCall(ast, env) {
+		elems := ast.Val.([]Sexpr)
+		symbol := elems[0].Val.(string)
+		macro, err := env.Get(symbol)
+		if err != nil {
+			continue
+		}
+		ast = macro.Val.(FunctionTCO).Fn(elems[1:]...)
+	}
+	return ast
+}
+
 // Eval evaluates an s-expression in the given environment.
 func Eval(expr Sexpr, env *Env) Sexpr {
 	// Tail call optimization prevents nested function calls.
@@ -155,10 +213,16 @@ func Eval(expr Sexpr, env *Env) Sexpr {
 		if expr.Type != "list" {
 			return evalAST(expr, env)
 		}
-		list := expr.Val.([]Sexpr)
-		if len(list) == 0 {
+		if len(expr.Val.([]Sexpr)) == 0 {
 			return expr
 		}
+
+		// macro expansion
+		expr = macroExpand(expr, env)
+		if expr.Type != "list" {
+			return evalAST(expr, env)
+		}
+		list := expr.Val.([]Sexpr)
 
 		// special forms
 		if list[0].Type == "symbol" {
@@ -166,6 +230,9 @@ func Eval(expr Sexpr, env *Env) Sexpr {
 			switch list[0].Val.(string) {
 			case "def!":
 				return evalDef(args, env)
+			case "defmacro!":
+				expr = evalDefMacro(args, env)
+				continue
 			case "let*":
 				expr, env = evalLet(args, env)
 				continue
@@ -182,6 +249,8 @@ func Eval(expr Sexpr, env *Env) Sexpr {
 			case "quasiquote":
 				expr = evalQuasiquote(args, env)
 				continue
+			case "macroexpand":
+				return macroExpand(args[0], env)
 			}
 		}
 

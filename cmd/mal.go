@@ -45,6 +45,7 @@ func main() {
 	env := m.BuiltInEnv()
 
 	// self-hosted fns
+	rep(`(def! not (fn* (a) (if a false true)))`, env)
 	rep(`(def! load-file (fn* (f) (eval (read-string (str "(do " (slurp f) "\nnil)")))))`, env)
 
 	fmt.Println("Mal[-arkey] v0.0.1")

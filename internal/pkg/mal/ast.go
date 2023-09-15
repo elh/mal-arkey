@@ -16,7 +16,8 @@ package mal
 //   - AST:    Sexpr
 //   - Params: Sexpr
 //   - Env:    *Env
-//   - Fn:     func(args ...Sexpr) Sexpr }
+//   - Fn:     func(args ...Sexpr) Sexpr
+//   - IsMacro bool                      }
 type Sexpr struct {
 	Type string
 	Val  interface{}
@@ -24,8 +25,9 @@ type Sexpr struct {
 
 // FunctionTCO is a `fn*`-defined function that can be evaluated in a TCO style.
 type FunctionTCO struct {
-	AST    Sexpr
-	Params []Sexpr
-	Env    *Env
-	Fn     func(args ...Sexpr) Sexpr
+	AST     Sexpr
+	Params  []Sexpr
+	Env     *Env
+	Fn      func(args ...Sexpr) Sexpr
+	IsMacro bool
 }

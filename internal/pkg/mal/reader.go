@@ -162,10 +162,35 @@ func readAtom(reader *Reader) Sexpr {
 // ReadForm parses the next sexpr from the reader.
 // Currently only supporting lists and atoms.
 func ReadForm(reader *Reader) Sexpr {
-	if reader.Peek() == "(" {
+	peekToken := reader.Peek()
+	switch peekToken {
+	case "'":
+		reader.Next()
+		return Sexpr{Type: "list", Val: []Sexpr{
+			{Type: "symbol", Val: "quote"},
+			ReadForm(reader),
+		}}
+	case "`":
+		reader.Next()
+		return Sexpr{Type: "list", Val: []Sexpr{
+			{Type: "symbol", Val: "quasiquote"},
+			ReadForm(reader),
+		}}
+	case "~":
+		reader.Next()
+		return Sexpr{Type: "list", Val: []Sexpr{
+			{Type: "symbol", Val: "unquote"},
+			ReadForm(reader),
+		}}
+	case "~@":
+		reader.Next()
+		return Sexpr{Type: "list", Val: []Sexpr{
+			{Type: "symbol", Val: "splice-unquote"},
+			ReadForm(reader),
+		}}
+	case "(":
 		return readList(reader)
-	}
-	if reader.Peek() == "{" {
+	case "{":
 		return readHashMap(reader)
 	}
 	return readAtom(reader)
