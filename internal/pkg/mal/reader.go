@@ -82,6 +82,29 @@ func readList(reader *Reader) Sexpr {
 	}
 }
 
+func readHashMap(reader *Reader) Sexpr {
+	if reader.Peek() != "{" {
+		panic("expected '{'")
+	}
+	reader.Next()
+
+	elements := []Sexpr{}
+	for reader.Peek() != "}" {
+		elements = append(elements, ReadForm(reader))
+	}
+	reader.Next()
+
+	kv := map[string]Sexpr{}
+	for i := 0; i < len(elements); i += 2 {
+		kv[elements[i].Val.(string)] = elements[i+1]
+	}
+
+	return Sexpr{
+		Type: "hash-map",
+		Val:  kv,
+	}
+}
+
 // only currently supporting integers and symbols
 func readAtom(reader *Reader) Sexpr {
 	token := reader.Next()
@@ -141,6 +164,9 @@ func readAtom(reader *Reader) Sexpr {
 func ReadForm(reader *Reader) Sexpr {
 	if reader.Peek() == "(" {
 		return readList(reader)
+	}
+	if reader.Peek() == "{" {
+		return readHashMap(reader)
 	}
 	return readAtom(reader)
 }

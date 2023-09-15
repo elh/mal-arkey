@@ -27,6 +27,12 @@ func PrintStr(s Sexpr, readably bool) string {
 			elements = append(elements, PrintStr(element, readably))
 		}
 		return fmt.Sprintf("(%s)", strings.Join(elements, " "))
+	case "hash-map":
+		var elements []string
+		for k, v := range s.Val.(map[string]Sexpr) {
+			elements = append(elements, fmt.Sprintf("\"%s\"", k), PrintStr(v, readably))
+		}
+		return fmt.Sprintf("{%s}", strings.Join(elements, " "))
 	case "function", "function-tco":
 		return "#<function>"
 	case "atom":

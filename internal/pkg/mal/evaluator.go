@@ -134,7 +134,7 @@ func quasiquote(ast Sexpr) Sexpr {
 			quasiquote(Sexpr{Type: "list", Val: elems[1:]}),
 		}}
 	}
-	if ast.Type == "symbol" {
+	if ast.Type == "symbol" || ast.Type == "hash-map" {
 		return Sexpr{Type: "list", Val: []Sexpr{
 			{Type: "symbol", Val: "quote"},
 			ast,
