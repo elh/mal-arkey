@@ -48,7 +48,7 @@ func main() {
 	rep(`(def! not (fn* (a) (if a false true)))`, env)
 	rep(`(def! load-file (fn* (f) (eval (read-string (str "(do " (slurp f) "\nnil)")))))`, env)
 
-	fmt.Println("Mal[-arkey] v0.0.1")
+	rep(`(println (str "Mal [" *host-language* "]"))`, env)
 	for {
 		fmt.Print("user> ")
 		input, err := reader.ReadString('\n')

@@ -1,6 +1,7 @@
 package mal
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"strings"
@@ -72,6 +73,7 @@ func BuiltInEnv() *Env {
 	env := &Env{
 		outer: nil,
 		bindings: map[string]Sexpr{
+			"*host-language*": {Type: "string", Val: "Mal-arkey (go)"},
 			"+": {Type: "function", Val: func(args ...Sexpr) Sexpr {
 				var sum int64
 				for _, arg := range args {
@@ -244,6 +246,7 @@ func BuiltInEnv() *Env {
 				if len(args) != 1 {
 					panic("wrong number of arguments. `atom` requires 1 argument")
 				}
+				// TODO: remove? really no need for this in a single threaded system
 				atomID := uuid.New().String()
 				atoms[atomID] = args[0]
 				return Sexpr{Type: "atom", Val: atomID}
@@ -399,6 +402,27 @@ func BuiltInEnv() *Env {
 					panic("wrong number of arguments. `symbol?` requires 1 argument")
 				}
 				return Sexpr{Type: "boolean", Val: args[0].Type == "symbol"}
+			}},
+			"readline": {Type: "function", Val: func(args ...Sexpr) Sexpr {
+				if len(args) != 1 {
+					panic("wrong number of arguments. `readline` requires 1 argument")
+				}
+				if args[0].Type != "string" {
+					panic("first argument to `readline` must be a string")
+				}
+
+				reader := bufio.NewReader(os.Stdin)
+
+				fmt.Print(args[0].Val.(string))
+				input, err := reader.ReadString('\n')
+				if err != nil {
+					if err.Error() == "EOF" {
+						return Sexpr{Type: "nil", Val: nil}
+					}
+					panic(err)
+				}
+
+				return Sexpr{Type: "string", Val: strings.TrimRight(input, "\n")}
 			}},
 		},
 	}
