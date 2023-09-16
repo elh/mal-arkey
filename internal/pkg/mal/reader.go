@@ -182,6 +182,12 @@ func readAtom(reader *Reader) Sexpr {
 func ReadForm(reader *Reader) Sexpr {
 	peekToken := reader.Peek()
 	switch peekToken {
+	case "@":
+		reader.Next()
+		return Sexpr{Type: "list", Val: []Sexpr{
+			{Type: "symbol", Val: "deref"},
+			ReadForm(reader),
+		}}
 	case "'":
 		reader.Next()
 		return Sexpr{Type: "list", Val: []Sexpr{

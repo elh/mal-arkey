@@ -38,7 +38,7 @@ func evalLet(args []Sexpr, env *Env) (Sexpr, *Env) {
 	if len(args) != 2 {
 		panic("let* requires two arguments")
 	}
-	if args[0].Type != "list" {
+	if args[0].Type != "list" && args[0].Type != "vector" {
 		panic("let* requires a list as first argument")
 	}
 	bindings := args[0].Val.([]Sexpr)
