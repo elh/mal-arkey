@@ -1,6 +1,13 @@
 package mal
 
-// TODO: change? factoring recommended by mal doesn't click with me
+import (
+	"fmt"
+	"strings"
+
+	"golang.org/x/exp/slices"
+)
+
+// Note: this recommended factoring doesn't click with me. this is like "eval non-function"?
 func evalAST(sexpr Value, env *Env) Value {
 	switch sexpr.Type {
 	case "list", "vector":
@@ -26,13 +33,27 @@ func evalAST(sexpr Value, env *Env) Value {
 	}
 }
 
+// panic if args are not of expected length and types. spec types can be "|"-separated unions.
+func validateArgs(fn string, args []Value, spec []string) {
+	var isVariadic bool
+	if spec[len(spec)-1] == "*" {
+		spec = spec[:len(spec)-1]
+		isVariadic = true
+	}
+	if isVariadic && len(args) < len(spec) {
+		panic(fmt.Sprintf("%s requires at least %d argument(s)", fn, len(spec)))
+	} else if !isVariadic && len(args) != len(spec) {
+		panic(fmt.Sprintf("%s requires %d argument(s)", fn, len(spec)))
+	}
+	for i, s := range spec {
+		if s != "any" && !slices.Contains(strings.Split(s, "|"), args[i].Type) {
+			panic(fmt.Sprintf("%s %d-idx argument must be of %s type", fn, i, s))
+		}
+	}
+}
+
 func evalDef(args []Value, env *Env) Value {
-	if len(args) != 2 {
-		panic("def! requires two arguments")
-	}
-	if args[0].Type != "symbol" {
-		panic("def! requires a symbol as first argument")
-	}
+	validateArgs("def!", args, []string{"symbol", "any"})
 	v := Eval(args[1], env)
 	env.Set(args[0].Val.(string), v)
 	return v
@@ -40,13 +61,8 @@ func evalDef(args []Value, env *Env) Value {
 
 // With TCO. Return unevaluated body and new environment.
 func evalLet(args []Value, env *Env) (Value, *Env) {
+	validateArgs("let*", args, []string{"list|vector", "any"})
 	letEnv := NewEnv(env, nil, nil)
-	if len(args) != 2 {
-		panic("let* requires two arguments")
-	}
-	if args[0].Type != "list" && args[0].Type != "vector" {
-		panic("let* requires a list as first argument")
-	}
 	bindings := args[0].Val.([]Value)
 	if len(bindings)%2 != 0 {
 		panic("let* requires an even number of forms in bindings")
@@ -86,12 +102,7 @@ func evalDo(args []Value, env *Env) Value {
 
 // With TCO. Return a function-tco value.
 func evalFn(evalArgs []Value, env *Env) Value {
-	if len(evalArgs) != 2 {
-		panic("fn* requires two arguments")
-	}
-	if evalArgs[0].Type != "list" && evalArgs[0].Type != "vector" {
-		panic("fn* requires a list as first argument")
-	}
+	validateArgs("fn*", evalArgs, []string{"list|vector", "any"})
 	params := evalArgs[0].Val.([]Value)
 	for _, param := range params {
 		if param.Type != "symbol" {
@@ -110,13 +121,6 @@ func evalFn(evalArgs []Value, env *Env) Value {
 		},
 		IsMacro: false},
 	}
-}
-
-func evalQuote(evalArgs []Value) Value {
-	if len(evalArgs) != 1 {
-		panic("quote requires 1 argument")
-	}
-	return evalArgs[0]
 }
 
 func quasiquote(ast Value) Value {
@@ -154,18 +158,8 @@ func quasiquote(ast Value) Value {
 	return ast
 }
 
-// With TCO. Return an unevaluated quasiquote form.
-func evalQuasiquote(evalArgs []Value, env *Env) Value {
-	return quasiquote(evalArgs[0])
-}
-
 func evalDefMacro(args []Value, env *Env) Value {
-	if len(args) != 2 {
-		panic("def! requires two arguments")
-	}
-	if args[0].Type != "symbol" {
-		panic("def! requires a symbol as first argument")
-	}
+	validateArgs("defmacro!", args, []string{"symbol", "any"})
 	v := Eval(args[1], env)
 	if v.Type != "function-tco" {
 		panic("defmacro! requires a macro fn as second argument")
@@ -230,24 +224,11 @@ func try(expr Value, env *Env) (value, exceptionValue *Value) {
 }
 
 func evalTryCatch(args []Value, env *Env) Value {
-	if len(args) != 2 {
-		panic("try* requires two arguments")
-	}
-	if args[1].Type != "list" {
-		panic("try* requires a list as second argument")
-	}
+	validateArgs("try*", args, []string{"any", "list"})
 	catchForm := args[1].Val.([]Value)
-	if len(catchForm) != 3 {
-		panic("try* requires a list of two elements as second argument")
-	}
-	if catchForm[0].Type != "symbol" {
-		panic("try* requires a symbol as first element of second argument")
-	}
+	validateArgs("catch*", catchForm, []string{"symbol", "symbol", "any"})
 	if catchForm[0].Val.(string) != "catch*" {
 		panic("try* requires a symbol 'catch* as first element of second argument")
-	}
-	if catchForm[1].Type != "symbol" {
-		panic("try* requires a symbol as second element of second argument")
 	}
 
 	value, exception := try(args[0], env)
@@ -297,9 +278,9 @@ func Eval(expr Value, env *Env) Value {
 			case "fn*":
 				return evalFn(args, env)
 			case "quote":
-				return evalQuote(args)
+				return args[0]
 			case "quasiquote":
-				expr = evalQuasiquote(args, env)
+				expr = quasiquote(args[0])
 				continue
 			case "macroexpand":
 				return macroExpand(args[0], env)

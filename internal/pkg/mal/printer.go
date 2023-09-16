@@ -5,8 +5,8 @@ import (
 	"strings"
 )
 
-// PrintStr returns a string representation of the given value.
-func PrintStr(s Value, readably bool) string {
+// Print returns a string representation of the given value.
+func Print(s Value, readably bool) string {
 	switch s.Type {
 	case "string":
 		str := s.Val.(string)
@@ -24,7 +24,7 @@ func PrintStr(s Value, readably bool) string {
 	case "list", "vector":
 		var elements []string
 		for _, element := range s.Val.([]Value) {
-			elements = append(elements, PrintStr(element, readably))
+			elements = append(elements, Print(element, readably))
 		}
 		if s.Type == "list" {
 			return fmt.Sprintf("(%s)", strings.Join(elements, " "))
@@ -33,14 +33,14 @@ func PrintStr(s Value, readably bool) string {
 	case "hash-map":
 		var elements []string
 		for k, v := range s.Val.(map[string]Value) {
-			elements = append(elements, fmt.Sprintf("\"%s\"", k), PrintStr(v, readably))
+			elements = append(elements, fmt.Sprintf("\"%s\"", k), Print(v, readably))
 		}
 		return fmt.Sprintf("{%s}", strings.Join(elements, " "))
 	case "function", "function-tco":
 		return "#<function>"
 	case "atom":
 		id := s.Val.(int)
-		return fmt.Sprintf("(atom %s)", PrintStr(atoms[id], readably))
+		return fmt.Sprintf("(atom %s)", Print(atoms[id], readably))
 	default:
 		panic(fmt.Sprintf("cannot print unsupported type: %s", s.Type))
 	}

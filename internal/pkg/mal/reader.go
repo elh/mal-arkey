@@ -36,14 +36,12 @@ func Tokenize(input string) []string {
 	matches := tokenRegex.FindAllStringSubmatch(input, -1)
 	var out []string
 	for _, match := range matches {
-		cur := match[0]
-		// note: regex does not drop leading whitespaces and commas
-		for {
-			trimmed := strings.Trim(strings.TrimSpace(cur), ",")
-			if trimmed == cur {
-				break
-			}
+		// note: regex does not drop leading whitespaces and commas. trim until no change
+		var cur string
+		trimmed := match[0]
+		for trimmed != cur {
 			cur = trimmed
+			trimmed = strings.Trim(strings.TrimSpace(cur), ",")
 		}
 		if cur == "" || strings.HasPrefix(cur, ";") {
 			continue
@@ -53,49 +51,35 @@ func Tokenize(input string) []string {
 	return out
 }
 
-// ReadStr parses input text into a sexpr.
-func ReadStr(input string) Value {
+// Read parses input text into an AST.
+func Read(input string) Value {
 	reader := &Reader{Tokens: Tokenize(input)}
-	s := ReadForm(reader)
+	s := readForm(reader)
 	if reader.Peek() != "" {
 		panic("invalid trailing tokens")
 	}
 	return s
 }
 
-func readSequence(reader *Reader, start string) Value {
-	stopToken := map[string]string{"(": ")", "[": "]"}[start]
-	seqType := map[string]string{"(": "list", "[": "vector"}[start]
+func readCollection(reader *Reader, peeked string) Value {
+	stopToken := map[string]string{"(": ")", "[": "]", "{": "}"}[peeked]
+	seqType := map[string]string{"(": "list", "[": "vector", "{": "hash-map"}[peeked]
 
 	reader.Next()
-
 	var elements []Value
 	for reader.Peek() != stopToken {
-		elements = append(elements, ReadForm(reader))
+		elements = append(elements, readForm(reader))
 	}
 	reader.Next()
 
+	if seqType == "hash-map" {
+		kv := map[string]Value{}
+		for i := 0; i < len(elements); i += 2 {
+			kv[elements[i].Val.(string)] = elements[i+1]
+		}
+		return Value{Type: "hash-map", Val: kv}
+	}
 	return Value{Type: seqType, Val: elements}
-}
-
-func readHashMap(reader *Reader) Value {
-	if reader.Peek() != "{" {
-		panic("expected '{'")
-	}
-	reader.Next()
-
-	var elements []Value
-	for reader.Peek() != "}" {
-		elements = append(elements, ReadForm(reader))
-	}
-	reader.Next()
-
-	kv := map[string]Value{}
-	for i := 0; i < len(elements); i += 2 {
-		kv[elements[i].Val.(string)] = elements[i+1]
-	}
-
-	return Value{Type: "hash-map", Val: kv}
 }
 
 // only currently supporting integers and symbols
@@ -134,45 +118,17 @@ func readAtom(reader *Reader) Value {
 	}
 }
 
-// ReadForm parses the next form from the reader.
+// readForm parses the next form from the reader.
 // Currently only supporting lists and atoms.
-func ReadForm(reader *Reader) Value {
+func readForm(reader *Reader) Value {
 	peekToken := reader.Peek()
 	switch peekToken {
-	case "@":
+	case "@", "'", "`", "~", "~@": // reader macros
+		syms := map[string]string{"@": "deref", "'": "quote", "`": "quasiquote", "~": "unquote", "~@": "splice-unquote"}
 		reader.Next()
-		return Value{Type: "list", Val: []Value{
-			{Type: "symbol", Val: "deref"},
-			ReadForm(reader),
-		}}
-	case "'":
-		reader.Next()
-		return Value{Type: "list", Val: []Value{
-			{Type: "symbol", Val: "quote"},
-			ReadForm(reader),
-		}}
-	case "`":
-		reader.Next()
-		return Value{Type: "list", Val: []Value{
-			{Type: "symbol", Val: "quasiquote"},
-			ReadForm(reader),
-		}}
-	case "~":
-		reader.Next()
-		return Value{Type: "list", Val: []Value{
-			{Type: "symbol", Val: "unquote"},
-			ReadForm(reader),
-		}}
-	case "~@":
-		reader.Next()
-		return Value{Type: "list", Val: []Value{
-			{Type: "symbol", Val: "splice-unquote"},
-			ReadForm(reader),
-		}}
-	case "(", "[":
-		return readSequence(reader, peekToken)
-	case "{":
-		return readHashMap(reader)
+		return Value{Type: "list", Val: []Value{{Type: "symbol", Val: syms[peekToken]}, readForm(reader)}}
+	case "(", "[", "{":
+		return readCollection(reader, peekToken)
 	}
 	return readAtom(reader)
 }

@@ -9,39 +9,20 @@ import (
 	m "github.com/elh/mal-arkey/internal/pkg/mal"
 )
 
-func printError(err any) {
-	const colorRed, colorReset = "\033[31m", "\033[0m"
-	fmt.Printf("%sError: %s%s", colorRed, err, colorReset)
-}
-
-func read(str string) m.Value {
-	return m.ReadStr(str)
-}
-
-func eval(expr m.Value, env *m.Env) m.Value {
-	return m.Eval(expr, env)
-}
-
-func print(expr m.Value) string {
-	return m.PrintStr(expr, true)
-}
-
+// Read–eval–print. recover panics here so that REPL can continue accepting stdin
 func rep(str string, env *m.Env) (out string) {
-	// read, eval, print functions panic
-	// recover here so that repl main loop can continue accepting all of stdin.
 	defer func() {
 		if r := recover(); r != nil {
-			printError(r)
-			out = ""
+			const colorRed, colorReset = "\033[31m", "\033[0m"
+			fmt.Printf("%sError: %s%s", colorRed, r, colorReset)
 		}
 	}()
-
-	return print(eval(read(str), env))
+	return m.Print(m.Eval(m.Read(str), env), true)
 }
 
 func main() {
 	reader := bufio.NewReader(os.Stdin)
-	env := m.BaseEnv()
+	env := m.BuiltinEnv()
 
 	// self-hosted fns
 	rep(`(def! not (fn* (a) (if a false true)))`, env)
