@@ -3,6 +3,7 @@ package mal
 // Sexpr is an s-expression with an associated type.
 // Valid types:
 // * "list"         - []Sexpr
+// * "vector"       - []Sexpr
 // * "hash-map"     - map[string]Sexpr
 // * "symbol"       - string
 // * "string"       - string

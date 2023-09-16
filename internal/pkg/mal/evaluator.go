@@ -83,7 +83,7 @@ func evalFn(evalArgs []Sexpr, env *Env) Sexpr {
 	if len(evalArgs) != 2 {
 		panic("fn* requires two arguments")
 	}
-	if evalArgs[0].Type != "list" {
+	if evalArgs[0].Type != "list" && evalArgs[0].Type != "vector" {
 		panic("fn* requires a list as first argument")
 	}
 	params := evalArgs[0].Val.([]Sexpr)

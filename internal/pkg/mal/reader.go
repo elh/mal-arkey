@@ -82,6 +82,24 @@ func readList(reader *Reader) Sexpr {
 	}
 }
 
+func readVector(reader *Reader) Sexpr {
+	if reader.Peek() != "[" {
+		panic("expected '['")
+	}
+	reader.Next()
+
+	elements := []Sexpr{}
+	for reader.Peek() != "]" {
+		elements = append(elements, ReadForm(reader))
+	}
+	reader.Next()
+
+	return Sexpr{
+		Type: "vector",
+		Val:  elements,
+	}
+}
+
 func readHashMap(reader *Reader) Sexpr {
 	if reader.Peek() != "{" {
 		panic("expected '{'")
@@ -190,6 +208,8 @@ func ReadForm(reader *Reader) Sexpr {
 		}}
 	case "(":
 		return readList(reader)
+	case "[":
+		return readVector(reader)
 	case "{":
 		return readHashMap(reader)
 	}
