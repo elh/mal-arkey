@@ -1,27 +1,20 @@
 package mal
 
-// TODO: change? I'm following the instructions from mal but I don't get this factoring.
-func evalAST(sexpr Sexpr, env *Env) Sexpr {
+// TODO: change? factoring recommended by mal doesn't click with me
+func evalAST(sexpr Value, env *Env) Value {
 	switch sexpr.Type {
-	// TODO: compress code
-	case "list":
-		var elems []Sexpr
-		for _, elem := range sexpr.Val.([]Sexpr) {
+	case "list", "vector":
+		var elems []Value
+		for _, elem := range sexpr.Val.([]Value) {
 			elems = append(elems, Eval(elem, env))
 		}
-		return Sexpr{Type: "list", Val: elems}
-	case "vector":
-		var elems []Sexpr
-		for _, elem := range sexpr.Val.([]Sexpr) {
-			elems = append(elems, Eval(elem, env))
-		}
-		return Sexpr{Type: "vector", Val: elems}
+		return Value{Type: sexpr.Type, Val: elems}
 	case "hash-map":
-		kv := map[string]Sexpr{}
-		for k, v := range sexpr.Val.(map[string]Sexpr) {
+		kv := map[string]Value{}
+		for k, v := range sexpr.Val.(map[string]Value) {
 			kv[k] = Eval(v, env)
 		}
-		return Sexpr{Type: "hash-map", Val: kv}
+		return Value{Type: "hash-map", Val: kv}
 	case "symbol":
 		s, err := env.Get(sexpr.Val.(string))
 		if err != nil {
@@ -33,7 +26,7 @@ func evalAST(sexpr Sexpr, env *Env) Sexpr {
 	}
 }
 
-func evalDef(args []Sexpr, env *Env) Sexpr {
+func evalDef(args []Value, env *Env) Value {
 	if len(args) != 2 {
 		panic("def! requires two arguments")
 	}
@@ -46,7 +39,7 @@ func evalDef(args []Sexpr, env *Env) Sexpr {
 }
 
 // With TCO. Return unevaluated body and new environment.
-func evalLet(args []Sexpr, env *Env) (Sexpr, *Env) {
+func evalLet(args []Value, env *Env) (Value, *Env) {
 	letEnv := NewEnv(env, nil, nil)
 	if len(args) != 2 {
 		panic("let* requires two arguments")
@@ -54,7 +47,7 @@ func evalLet(args []Sexpr, env *Env) (Sexpr, *Env) {
 	if args[0].Type != "list" && args[0].Type != "vector" {
 		panic("let* requires a list as first argument")
 	}
-	bindings := args[0].Val.([]Sexpr)
+	bindings := args[0].Val.([]Value)
 	if len(bindings)%2 != 0 {
 		panic("let* requires an even number of forms in bindings")
 	}
@@ -69,7 +62,7 @@ func evalLet(args []Sexpr, env *Env) (Sexpr, *Env) {
 }
 
 // With TCO. Return unevaluated if/else branch form
-func evalIf(args []Sexpr, env *Env) Sexpr {
+func evalIf(args []Value, env *Env) Value {
 	if len(args) != 2 && len(args) != 3 {
 		panic("if requires three (or two) arguments")
 	}
@@ -78,13 +71,13 @@ func evalIf(args []Sexpr, env *Env) Sexpr {
 		if len(args) == 3 {
 			return args[2]
 		}
-		return Sexpr{Type: "nil", Val: nil}
+		return Value{Type: "nil", Val: nil}
 	}
 	return args[1]
 }
 
 // With TCO. Return unevaluated final form.
-func evalDo(args []Sexpr, env *Env) Sexpr {
+func evalDo(args []Value, env *Env) Value {
 	for _, arg := range args[:len(args)-1] {
 		Eval(arg, env)
 	}
@@ -92,14 +85,14 @@ func evalDo(args []Sexpr, env *Env) Sexpr {
 }
 
 // With TCO. Return a function-tco value.
-func evalFn(evalArgs []Sexpr, env *Env) Sexpr {
+func evalFn(evalArgs []Value, env *Env) Value {
 	if len(evalArgs) != 2 {
 		panic("fn* requires two arguments")
 	}
 	if evalArgs[0].Type != "list" && evalArgs[0].Type != "vector" {
 		panic("fn* requires a list as first argument")
 	}
-	params := evalArgs[0].Val.([]Sexpr)
+	params := evalArgs[0].Val.([]Value)
 	for _, param := range params {
 		if param.Type != "symbol" {
 			panic("fn* parameters must be symbols")
@@ -107,11 +100,11 @@ func evalFn(evalArgs []Sexpr, env *Env) Sexpr {
 	}
 	body := evalArgs[1]
 
-	return Sexpr{Type: "function-tco", Val: FunctionTCO{
+	return Value{Type: "function-tco", Val: FunctionTCO{
 		AST:    body,
 		Params: params,
 		Env:    env,
-		Fn: func(args ...Sexpr) Sexpr {
+		Fn: func(args ...Value) Value {
 			fnEnv := NewEnv(env, params, args)
 			return Eval(body, fnEnv)
 		},
@@ -119,16 +112,16 @@ func evalFn(evalArgs []Sexpr, env *Env) Sexpr {
 	}
 }
 
-func evalQuote(evalArgs []Sexpr) Sexpr {
+func evalQuote(evalArgs []Value) Value {
 	if len(evalArgs) != 1 {
 		panic("quote requires 1 argument")
 	}
 	return evalArgs[0]
 }
 
-func quasiquote(ast Sexpr) Sexpr {
+func quasiquote(ast Value) Value {
 	if ast.Type == "list" {
-		elems := ast.Val.([]Sexpr)
+		elems := ast.Val.([]Value)
 		if len(elems) == 2 && elems[0].Type == "symbol" && elems[0].Val.(string) == "unquote" {
 			return elems[1]
 		}
@@ -138,22 +131,22 @@ func quasiquote(ast Sexpr) Sexpr {
 
 		elem := elems[0]
 		if elem.Type == "list" {
-			children := elem.Val.([]Sexpr)
+			children := elem.Val.([]Value)
 			if len(children) > 0 && children[0].Type == "symbol" && children[0].Val.(string) == "splice-unquote" {
-				return Sexpr{Type: "list", Val: []Sexpr{
+				return Value{Type: "list", Val: []Value{
 					{Type: "symbol", Val: "concat"},
 					children[1],
-					quasiquote(Sexpr{Type: "list", Val: elems[1:]})}}
+					quasiquote(Value{Type: "list", Val: elems[1:]})}}
 			}
 		}
-		return Sexpr{Type: "list", Val: []Sexpr{
+		return Value{Type: "list", Val: []Value{
 			{Type: "symbol", Val: "cons"},
 			quasiquote(elem),
-			quasiquote(Sexpr{Type: "list", Val: elems[1:]}),
+			quasiquote(Value{Type: "list", Val: elems[1:]}),
 		}}
 	}
 	if ast.Type == "symbol" || ast.Type == "hash-map" {
-		return Sexpr{Type: "list", Val: []Sexpr{
+		return Value{Type: "list", Val: []Value{
 			{Type: "symbol", Val: "quote"},
 			ast,
 		}}
@@ -162,11 +155,11 @@ func quasiquote(ast Sexpr) Sexpr {
 }
 
 // With TCO. Return an unevaluated quasiquote form.
-func evalQuasiquote(evalArgs []Sexpr, env *Env) Sexpr {
+func evalQuasiquote(evalArgs []Value, env *Env) Value {
 	return quasiquote(evalArgs[0])
 }
 
-func evalDefMacro(args []Sexpr, env *Env) Sexpr {
+func evalDefMacro(args []Value, env *Env) Value {
 	if len(args) != 2 {
 		panic("def! requires two arguments")
 	}
@@ -177,18 +170,18 @@ func evalDefMacro(args []Sexpr, env *Env) Sexpr {
 	if v.Type != "function-tco" {
 		panic("defmacro! requires a macro fn as second argument")
 	}
-	// need to re-wrap the non-ptr Sexpr to update IsMacro = true
+	// need to re-wrap the non-ptr Value to update IsMacro = true
 	f := v.Val.(FunctionTCO)
 	f.IsMacro = true
-	env.Set(args[0].Val.(string), Sexpr{Type: "function-tco", Val: f})
+	env.Set(args[0].Val.(string), Value{Type: "function-tco", Val: f})
 	return v
 }
 
-func isMacroCall(ast Sexpr, env *Env) bool {
+func isMacroCall(ast Value, env *Env) bool {
 	if ast.Type != "list" {
 		return false
 	}
-	list := ast.Val.([]Sexpr)
+	list := ast.Val.([]Value)
 	if len(list) == 0 {
 		return false
 	}
@@ -206,9 +199,9 @@ func isMacroCall(ast Sexpr, env *Env) bool {
 	return v.Val.(FunctionTCO).IsMacro
 }
 
-func macroExpand(ast Sexpr, env *Env) Sexpr {
+func macroExpand(ast Value, env *Env) Value {
 	for isMacroCall(ast, env) {
-		elems := ast.Val.([]Sexpr)
+		elems := ast.Val.([]Value)
 		symbol := elems[0].Val.(string)
 		macro, err := env.Get(symbol)
 		if err != nil {
@@ -219,16 +212,16 @@ func macroExpand(ast Sexpr, env *Env) Sexpr {
 	return ast
 }
 
-func try(expr Sexpr, env *Env) (value, exceptionSexpr *Sexpr) {
+func try(expr Value, env *Env) (value, exceptionValue *Value) {
 	defer func() {
 		if r := recover(); r != nil {
 			switch v := r.(type) {
 			case string:
-				exceptionSexpr = &Sexpr{Type: "string", Val: v}
+				exceptionValue = &Value{Type: "string", Val: v}
 			case error:
-				exceptionSexpr = &Sexpr{Type: "string", Val: v.Error()}
-			case Sexpr:
-				exceptionSexpr = &v
+				exceptionValue = &Value{Type: "string", Val: v.Error()}
+			case Value:
+				exceptionValue = &v
 			}
 		}
 	}()
@@ -236,14 +229,14 @@ func try(expr Sexpr, env *Env) (value, exceptionSexpr *Sexpr) {
 	return &out, nil
 }
 
-func evalTryCatch(args []Sexpr, env *Env) Sexpr {
+func evalTryCatch(args []Value, env *Env) Value {
 	if len(args) != 2 {
 		panic("try* requires two arguments")
 	}
 	if args[1].Type != "list" {
 		panic("try* requires a list as second argument")
 	}
-	catchForm := args[1].Val.([]Sexpr)
+	catchForm := args[1].Val.([]Value)
 	if len(catchForm) != 3 {
 		panic("try* requires a list of two elements as second argument")
 	}
@@ -261,18 +254,18 @@ func evalTryCatch(args []Sexpr, env *Env) Sexpr {
 	if exception == nil {
 		return *value
 	}
-	catchEnv := NewEnv(env, []Sexpr{catchForm[1]}, []Sexpr{*exception})
+	catchEnv := NewEnv(env, []Value{catchForm[1]}, []Value{*exception})
 	return Eval(catchForm[2], catchEnv)
 }
 
-// Eval evaluates an s-expression in the given environment.
-func Eval(expr Sexpr, env *Env) Sexpr {
+// Eval evaluates an expression in the given environment.
+func Eval(expr Value, env *Env) Value {
 	// Tail call optimization prevents nested function calls.
 	for {
 		if expr.Type != "list" {
 			return evalAST(expr, env)
 		}
-		if len(expr.Val.([]Sexpr)) == 0 {
+		if len(expr.Val.([]Value)) == 0 {
 			return expr
 		}
 
@@ -281,7 +274,7 @@ func Eval(expr Sexpr, env *Env) Sexpr {
 		if expr.Type != "list" {
 			return evalAST(expr, env)
 		}
-		list := expr.Val.([]Sexpr)
+		list := expr.Val.([]Value)
 
 		// special forms
 		if list[0].Type == "symbol" {
@@ -317,10 +310,10 @@ func Eval(expr Sexpr, env *Env) Sexpr {
 
 		// function call
 		evaluatedList := evalAST(expr, env)
-		elems := evaluatedList.Val.([]Sexpr)
+		elems := evaluatedList.Val.([]Value)
 		switch elems[0].Type {
 		case "function":
-			fn := elems[0].Val.(func(args ...Sexpr) Sexpr)
+			fn := elems[0].Val.(func(args ...Value) Value)
 			return fn(elems[1:]...)
 		case "function-tco":
 			args := elems[1:]

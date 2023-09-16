@@ -36,11 +36,10 @@ func Tokenize(input string) []string {
 	matches := tokenRegex.FindAllStringSubmatch(input, -1)
 	var out []string
 	for _, match := range matches {
-		// TODO: why isnt the regex just skipping whitespace and commas
 		cur := match[0]
+		// note: regex does not drop leading whitespaces and commas
 		for {
-			trimmed := strings.TrimSpace(cur)
-			trimmed = strings.Trim(trimmed, ",")
+			trimmed := strings.Trim(strings.TrimSpace(cur), ",")
 			if trimmed == cur {
 				break
 			}
@@ -55,7 +54,7 @@ func Tokenize(input string) []string {
 }
 
 // ReadStr parses input text into a sexpr.
-func ReadStr(input string) Sexpr {
+func ReadStr(input string) Value {
 	reader := &Reader{Tokens: Tokenize(input)}
 	s := ReadForm(reader)
 	if reader.Peek() != "" {
@@ -64,164 +63,114 @@ func ReadStr(input string) Sexpr {
 	return s
 }
 
-func readList(reader *Reader) Sexpr {
-	if reader.Peek() != "(" {
-		panic("expected '('")
-	}
+func readSequence(reader *Reader, start string) Value {
+	stopToken := map[string]string{"(": ")", "[": "]"}[start]
+	seqType := map[string]string{"(": "list", "[": "vector"}[start]
+
 	reader.Next()
 
-	elements := []Sexpr{}
-	for reader.Peek() != ")" {
+	var elements []Value
+	for reader.Peek() != stopToken {
 		elements = append(elements, ReadForm(reader))
 	}
 	reader.Next()
 
-	return Sexpr{
-		Type: "list",
-		Val:  elements,
-	}
+	return Value{Type: seqType, Val: elements}
 }
 
-func readVector(reader *Reader) Sexpr {
-	if reader.Peek() != "[" {
-		panic("expected '['")
-	}
-	reader.Next()
-
-	elements := []Sexpr{}
-	for reader.Peek() != "]" {
-		elements = append(elements, ReadForm(reader))
-	}
-	reader.Next()
-
-	return Sexpr{
-		Type: "vector",
-		Val:  elements,
-	}
-}
-
-func readHashMap(reader *Reader) Sexpr {
+func readHashMap(reader *Reader) Value {
 	if reader.Peek() != "{" {
 		panic("expected '{'")
 	}
 	reader.Next()
 
-	elements := []Sexpr{}
+	var elements []Value
 	for reader.Peek() != "}" {
 		elements = append(elements, ReadForm(reader))
 	}
 	reader.Next()
 
-	kv := map[string]Sexpr{}
+	kv := map[string]Value{}
 	for i := 0; i < len(elements); i += 2 {
 		kv[elements[i].Val.(string)] = elements[i+1]
 	}
 
-	return Sexpr{
-		Type: "hash-map",
-		Val:  kv,
-	}
+	return Value{Type: "hash-map", Val: kv}
 }
 
 // only currently supporting integers and symbols
-func readAtom(reader *Reader) Sexpr {
+func readAtom(reader *Reader) Value {
 	token := reader.Next()
 	if token == "" {
 		panic("expected atom")
 	}
 
 	if i, err := strconv.ParseInt(token, 10, 0); err == nil {
-		return Sexpr{
-			Type: "integer",
-			Val:  i,
-		}
+		return Value{Type: "integer", Val: i}
 	}
 	if f, err := strconv.ParseFloat(token, 64); err == nil {
-		return Sexpr{
-			Type: "float",
-			Val:  f,
-		}
+		return Value{Type: "float", Val: f}
 	}
 	if strings.HasPrefix(token, "\"") {
 		str := token[1 : len(token)-1]
 		str = strings.Replace(str, "\\\"", "\"", -1)
 		str = strings.Replace(str, "\\n", "\n", -1)
 		str = strings.Replace(str, "\\\\", "\\", -1)
-		return Sexpr{
-			Type: "string",
-			Val:  str,
-		}
+		return Value{Type: "string", Val: str}
 	}
 	if strings.HasPrefix(token, ":") {
-		return Sexpr{
-			Type: "keyword",
-			Val:  token,
-		}
+		return Value{Type: "keyword", Val: token}
 	}
 
 	switch token {
 	case "true":
-		return Sexpr{
-			Type: "boolean",
-			Val:  true,
-		}
+		return Value{Type: "boolean", Val: true}
 	case "false":
-		return Sexpr{
-			Type: "boolean",
-			Val:  false,
-		}
+		return Value{Type: "boolean", Val: false}
 	case "nil":
-		return Sexpr{
-			Type: "nil",
-			Val:  nil,
-		}
+		return Value{Type: "nil", Val: nil}
 	default:
-		return Sexpr{
-			Type: "symbol",
-			Val:  token,
-		}
+		return Value{Type: "symbol", Val: token}
 	}
 }
 
-// ReadForm parses the next sexpr from the reader.
+// ReadForm parses the next form from the reader.
 // Currently only supporting lists and atoms.
-func ReadForm(reader *Reader) Sexpr {
+func ReadForm(reader *Reader) Value {
 	peekToken := reader.Peek()
 	switch peekToken {
 	case "@":
 		reader.Next()
-		return Sexpr{Type: "list", Val: []Sexpr{
+		return Value{Type: "list", Val: []Value{
 			{Type: "symbol", Val: "deref"},
 			ReadForm(reader),
 		}}
 	case "'":
 		reader.Next()
-		return Sexpr{Type: "list", Val: []Sexpr{
+		return Value{Type: "list", Val: []Value{
 			{Type: "symbol", Val: "quote"},
 			ReadForm(reader),
 		}}
 	case "`":
 		reader.Next()
-		return Sexpr{Type: "list", Val: []Sexpr{
+		return Value{Type: "list", Val: []Value{
 			{Type: "symbol", Val: "quasiquote"},
 			ReadForm(reader),
 		}}
 	case "~":
 		reader.Next()
-		return Sexpr{Type: "list", Val: []Sexpr{
+		return Value{Type: "list", Val: []Value{
 			{Type: "symbol", Val: "unquote"},
 			ReadForm(reader),
 		}}
 	case "~@":
 		reader.Next()
-		return Sexpr{Type: "list", Val: []Sexpr{
+		return Value{Type: "list", Val: []Value{
 			{Type: "symbol", Val: "splice-unquote"},
 			ReadForm(reader),
 		}}
-	case "(":
-		return readList(reader)
-	case "[":
-		return readVector(reader)
+	case "(", "[":
+		return readSequence(reader, peekToken)
 	case "{":
 		return readHashMap(reader)
 	}

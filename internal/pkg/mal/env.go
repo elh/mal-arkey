@@ -5,22 +5,20 @@ import (
 	"fmt"
 	"os"
 	"strings"
-
-	"github.com/google/uuid"
 )
 
 // Env is a map of symbols to bound values.
 type Env struct {
 	outer    *Env
-	bindings map[string]Sexpr
+	bindings map[string]Value
 }
 
 // NewEnv creates a new environment with the given outer environment.
-func NewEnv(outer *Env, bindSymbols []Sexpr, bindValues []Sexpr) *Env {
-	bindings := map[string]Sexpr{}
+func NewEnv(outer *Env, bindSymbols []Value, bindValues []Value) *Env {
+	bindings := map[string]Value{}
 	for i, s := range bindSymbols {
 		if s.Type == "symbol" && s.Val.(string) == "&" {
-			bindings[bindSymbols[i+1].Val.(string)] = Sexpr{Type: "list", Val: bindValues[i:]}
+			bindings[bindSymbols[i+1].Val.(string)] = Value{Type: "list", Val: bindValues[i:]}
 			break
 		}
 		bindings[s.Val.(string)] = bindValues[i]
@@ -33,21 +31,22 @@ func NewEnv(outer *Env, bindSymbols []Sexpr, bindValues []Sexpr) *Env {
 }
 
 // Set binds a symbol to a value in the current environment.
-func (e *Env) Set(symbol string, value Sexpr) {
+func (e *Env) Set(symbol string, value Value) {
 	e.bindings[symbol] = value
 }
 
 // Get returns the value bound to the given symbol in the environment.
-func (e *Env) Get(symbol string) (Sexpr, error) {
+func (e *Env) Get(symbol string) (Value, error) {
 	if val, ok := e.bindings[symbol]; ok {
 		return val, nil
 	}
 	if e.outer != nil {
 		return e.outer.Get(symbol)
 	}
-	return Sexpr{}, fmt.Errorf("'%v' not found", symbol)
+	return Value{}, fmt.Errorf("'%v' not found", symbol)
 }
 
+// hack for numerical comparison
 func asFloat(v interface{}) float64 {
 	switch v := v.(type) {
 	case int64:
@@ -59,30 +58,30 @@ func asFloat(v interface{}) float64 {
 	}
 }
 
-// get the underlying go function from a function Sexpr
-func getFn(expr Sexpr) func(...Sexpr) Sexpr {
+// get the underlying go function from a function Value
+func getFn(expr Value) func(...Value) Value {
 	if expr.Type == "function" {
-		return expr.Val.(func(...Sexpr) Sexpr)
+		return expr.Val.(func(...Value) Value)
 	} else if expr.Type == "function-tco" {
 		return expr.Val.(FunctionTCO).Fn
 	}
 	return nil
 }
 
-// BuiltInEnv creates a new default built-in namespace env.
-func BuiltInEnv() *Env {
+// BaseEnv creates a new default built-in namespace env.
+func BaseEnv() *Env {
 	env := &Env{
 		outer: nil,
-		bindings: map[string]Sexpr{
+		bindings: map[string]Value{
 			"*host-language*": {Type: "string", Val: "Mal-arkey"},
-			"+": {Type: "function", Val: func(args ...Sexpr) Sexpr {
+			"+": {Type: "function", Val: func(args ...Value) Value {
 				var sum int64
 				for _, arg := range args {
 					sum += arg.Val.(int64)
 				}
-				return Sexpr{Type: "integer", Val: sum}
+				return Value{Type: "integer", Val: sum}
 			}},
-			"-": {Type: "function", Val: func(args ...Sexpr) Sexpr {
+			"-": {Type: "function", Val: func(args ...Value) Value {
 				if len(args) < 2 {
 					panic("wrong number of arguments. `-` requires at least 2 arguments")
 				}
@@ -94,16 +93,16 @@ func BuiltInEnv() *Env {
 						diff -= arg.Val.(int64)
 					}
 				}
-				return Sexpr{Type: "integer", Val: diff}
+				return Value{Type: "integer", Val: diff}
 			}},
-			"*": {Type: "function", Val: func(args ...Sexpr) Sexpr {
+			"*": {Type: "function", Val: func(args ...Value) Value {
 				var product int64 = 1
 				for _, arg := range args {
 					product *= arg.Val.(int64)
 				}
-				return Sexpr{Type: "integer", Val: product}
+				return Value{Type: "integer", Val: product}
 			}},
-			"/": {Type: "function", Val: func(args ...Sexpr) Sexpr {
+			"/": {Type: "function", Val: func(args ...Value) Value {
 				if len(args) < 1 {
 					panic("wrong number of arguments. `/` requires at least 1 argument")
 				}
@@ -115,125 +114,104 @@ func BuiltInEnv() *Env {
 						quotient /= arg.Val.(int64)
 					}
 				}
-				return Sexpr{Type: "integer", Val: quotient}
+				return Value{Type: "integer", Val: quotient}
 			}},
-			"pr-str": {Type: "function", Val: func(args ...Sexpr) Sexpr {
+			"pr-str": {Type: "function", Val: func(args ...Value) Value {
 				var strs []string
 				for _, arg := range args {
 					strs = append(strs, PrintStr(arg, true))
 				}
-				return Sexpr{Type: "string", Val: strings.Join(strs, " ")}
+				return Value{Type: "string", Val: strings.Join(strs, " ")}
 			}},
-			"str": {Type: "function", Val: func(args ...Sexpr) Sexpr {
+			"str": {Type: "function", Val: func(args ...Value) Value {
 				var strs []string
 				for _, arg := range args {
 					strs = append(strs, PrintStr(arg, false))
 				}
-				return Sexpr{Type: "string", Val: strings.Join(strs, "")}
+				return Value{Type: "string", Val: strings.Join(strs, "")}
 			}},
-			"prn": {Type: "function", Val: func(args ...Sexpr) Sexpr {
+			"prn": {Type: "function", Val: func(args ...Value) Value {
 				var strs []string
 				for _, arg := range args {
 					strs = append(strs, PrintStr(arg, true))
 				}
 				fmt.Println(strings.Join(strs, " "))
-				return Sexpr{Type: "nil", Val: nil}
+				return Value{Type: "nil", Val: nil}
 			}},
-			"println": {Type: "function", Val: func(args ...Sexpr) Sexpr {
+			"println": {Type: "function", Val: func(args ...Value) Value {
 				var strs []string
 				for _, arg := range args {
 					strs = append(strs, PrintStr(arg, false))
 				}
 				fmt.Println(strings.Join(strs, " "))
-				return Sexpr{Type: "nil", Val: nil}
+				return Value{Type: "nil", Val: nil}
 			}},
-			"list": {Type: "function", Val: func(args ...Sexpr) Sexpr {
-				return Sexpr{Type: "list", Val: args}
+			"list": {Type: "function", Val: func(args ...Value) Value {
+				return Value{Type: "list", Val: args}
 			}},
-			"list?": {Type: "function", Val: func(args ...Sexpr) Sexpr {
+			"list?": {Type: "function", Val: func(args ...Value) Value {
+				return Value{Type: "boolean", Val: len(args) > 0 && args[0].Type == "list"}
+			}},
+			"empty?": {Type: "function", Val: func(args ...Value) Value {
+				return Value{Type: "boolean", Val: len(args) > 0 && args[0].Type == "list" && len(args[0].Val.([]Value)) == 0}
+			}},
+			"count": {Type: "function", Val: func(args ...Value) Value {
 				if len(args) > 0 && args[0].Type == "list" {
-					return Sexpr{Type: "boolean", Val: true}
+					return Value{Type: "integer", Val: int64(len(args[0].Val.([]Value)))}
 				}
-				return Sexpr{Type: "boolean", Val: false}
+				return Value{Type: "integer", Val: int64(0)}
 			}},
-			"empty?": {Type: "function", Val: func(args ...Sexpr) Sexpr {
-				if len(args) > 0 && args[0].Type == "list" && len(args[0].Val.([]Sexpr)) == 0 {
-					return Sexpr{Type: "boolean", Val: true}
-				}
-				return Sexpr{Type: "boolean", Val: false}
-			}},
-			"count": {Type: "function", Val: func(args ...Sexpr) Sexpr {
-				if len(args) > 0 && args[0].Type == "list" {
-					return Sexpr{Type: "integer", Val: int64(len(args[0].Val.([]Sexpr)))}
-				}
-				return Sexpr{Type: "integer", Val: int64(0)}
-			}},
-			"=": {Type: "function", Val: func(args ...Sexpr) Sexpr {
+			"=": {Type: "function", Val: func(args ...Value) Value {
 				if len(args) != 2 {
 					panic("wrong number of arguments. `=` requires 2 arguments")
 				}
 				if args[0].Type == "list" && args[1].Type == "list" {
-					alist := args[0].Val.([]Sexpr)
-					blist := args[1].Val.([]Sexpr)
+					alist := args[0].Val.([]Value)
+					blist := args[1].Val.([]Value)
 					if len(alist) != len(blist) {
-						return Sexpr{Type: "boolean", Val: false}
+						return Value{Type: "boolean", Val: false}
 					}
 					for i, a := range alist {
 						if a.Type != blist[i].Type || a.Val != blist[i].Val {
-							return Sexpr{Type: "boolean", Val: false}
+							return Value{Type: "boolean", Val: false}
 						}
 					}
-					return Sexpr{Type: "boolean", Val: true}
+					return Value{Type: "boolean", Val: true}
 				}
 
-				if args[0].Type != args[1].Type || args[0].Val != args[1].Val {
-					return Sexpr{Type: "boolean", Val: false}
-				}
-				return Sexpr{Type: "boolean", Val: true}
+				return Value{Type: "boolean", Val: args[0].Type == args[1].Type && args[0].Val == args[1].Val}
 			}},
-			"<": {Type: "function", Val: func(args ...Sexpr) Sexpr {
+			"<": {Type: "function", Val: func(args ...Value) Value {
 				if len(args) != 2 {
 					panic("wrong number of arguments. `<` requires 2 arguments")
 				}
-				if asFloat(args[0].Val) < asFloat(args[1].Val) {
-					return Sexpr{Type: "boolean", Val: true}
-				}
-				return Sexpr{Type: "boolean", Val: false}
+				return Value{Type: "boolean", Val: asFloat(args[0].Val) < asFloat(args[1].Val)}
 			}},
-			"<=": {Type: "function", Val: func(args ...Sexpr) Sexpr {
+			"<=": {Type: "function", Val: func(args ...Value) Value {
 				if len(args) != 2 {
 					panic("wrong number of arguments. `<` requires 2 arguments")
 				}
-				if asFloat(args[0].Val) <= asFloat(args[1].Val) {
-					return Sexpr{Type: "boolean", Val: true}
-				}
-				return Sexpr{Type: "boolean", Val: false}
+				return Value{Type: "boolean", Val: asFloat(args[0].Val) <= asFloat(args[1].Val)}
 			}},
-			">": {Type: "function", Val: func(args ...Sexpr) Sexpr {
+			">": {Type: "function", Val: func(args ...Value) Value {
 				if len(args) != 2 {
 					panic("wrong number of arguments. `<` requires 2 arguments")
 				}
-				if asFloat(args[0].Val) > asFloat(args[1].Val) {
-					return Sexpr{Type: "boolean", Val: true}
-				}
-				return Sexpr{Type: "boolean", Val: false}
+				return Value{Type: "boolean", Val: asFloat(args[0].Val) > asFloat(args[1].Val)}
 			}},
-			">=": {Type: "function", Val: func(args ...Sexpr) Sexpr {
+			">=": {Type: "function", Val: func(args ...Value) Value {
 				if len(args) != 2 {
 					panic("wrong number of arguments. `<` requires 2 arguments")
 				}
-				if asFloat(args[0].Val) >= asFloat(args[1].Val) {
-					return Sexpr{Type: "boolean", Val: true}
-				}
-				return Sexpr{Type: "boolean", Val: false}
+				return Value{Type: "boolean", Val: asFloat(args[0].Val) >= asFloat(args[1].Val)}
 			}},
-			"read-string": {Type: "function", Val: func(args ...Sexpr) Sexpr {
+			"read-string": {Type: "function", Val: func(args ...Value) Value {
 				if len(args) != 1 {
 					panic("wrong number of arguments. `read-string` requires 1 argument")
 				}
 				return ReadStr(args[0].Val.(string))
 			}},
-			"slurp": {Type: "function", Val: func(args ...Sexpr) Sexpr {
+			"slurp": {Type: "function", Val: func(args ...Value) Value {
 				if len(args) != 1 {
 					panic("wrong number of arguments. `slurp` requires 1 argument")
 				}
@@ -241,42 +219,38 @@ func BuiltInEnv() *Env {
 				if err != nil {
 					panic(fmt.Sprintf("error reading file: %v", err))
 				}
-				return Sexpr{Type: "string", Val: string(s)}
+				return Value{Type: "string", Val: string(s)}
 			}},
-			"atom": {Type: "function", Val: func(args ...Sexpr) Sexpr {
+			"atom": {Type: "function", Val: func(args ...Value) Value {
 				if len(args) != 1 {
 					panic("wrong number of arguments. `atom` requires 1 argument")
 				}
-				// TODO: remove? really no need for this in a single threaded system
-				atomID := uuid.New().String()
-				atoms[atomID] = args[0]
-				return Sexpr{Type: "atom", Val: atomID}
+				atoms = append(atoms, args[0])
+				return Value{Type: "atom", Val: len(atoms) - 1}
 			}},
-			"atom?": {Type: "function", Val: func(args ...Sexpr) Sexpr {
+			"atom?": {Type: "function", Val: func(args ...Value) Value {
 				if len(args) != 1 {
 					panic("wrong number of arguments. `atom?` requires 1 argument")
 				}
-				return Sexpr{Type: "boolean", Val: args[0].Type == "atom"}
+				return Value{Type: "boolean", Val: args[0].Type == "atom"}
 			}},
-			"deref": {Type: "function", Val: func(args ...Sexpr) Sexpr {
+			"deref": {Type: "function", Val: func(args ...Value) Value {
 				if len(args) != 1 {
 					panic("wrong number of arguments. `deref` requires 1 argument")
 				}
-				atomID := args[0].Val.(string)
-				return atoms[atomID]
+				return atoms[args[0].Val.(int)]
 			}},
-			"reset!": {Type: "function", Val: func(args ...Sexpr) Sexpr {
+			"reset!": {Type: "function", Val: func(args ...Value) Value {
 				if len(args) != 2 {
 					panic("wrong number of arguments. `reset!` requires 2 arguments")
 				}
 				if args[0].Type != "atom" {
 					panic("first argument to `reset!` must be an atom")
 				}
-				atomID := args[0].Val.(string)
-				atoms[atomID] = args[1]
+				atoms[args[0].Val.(int)] = args[1]
 				return args[1]
 			}},
-			"swap!": {Type: "function", Val: func(args ...Sexpr) Sexpr {
+			"swap!": {Type: "function", Val: func(args ...Value) Value {
 				if len(args) < 2 {
 					panic("wrong number of arguments. `swap!` requires at least 2 arguments")
 				}
@@ -289,35 +263,35 @@ func BuiltInEnv() *Env {
 					panic("second argument to `swap!` must be a function")
 				}
 
-				atomID := args[0].Val.(string)
+				atomID := args[0].Val.(int)
 				atomCur := atoms[atomID]
 
-				fnArgs := append([]Sexpr{atomCur}, args[2:]...)
+				fnArgs := append([]Value{atomCur}, args[2:]...)
 				val := fn(fnArgs...)
 
 				atoms[atomID] = val
 				return val
 			}},
-			"cons": {Type: "function", Val: func(args ...Sexpr) Sexpr {
+			"cons": {Type: "function", Val: func(args ...Value) Value {
 				if len(args) != 2 {
 					panic("wrong number of arguments. `cons` requires 2 arguments")
 				}
 				if args[1].Type != "list" {
 					panic("second argument to `cons` must be a list")
 				}
-				return Sexpr{Type: "list", Val: append([]Sexpr{args[0]}, args[1].Val.([]Sexpr)...)}
+				return Value{Type: "list", Val: append([]Value{args[0]}, args[1].Val.([]Value)...)}
 			}},
-			"concat": {Type: "function", Val: func(args ...Sexpr) Sexpr {
-				var vals []Sexpr
+			"concat": {Type: "function", Val: func(args ...Value) Value {
+				var vals []Value
 				for _, arg := range args {
 					if arg.Type != "list" {
 						panic("all arguments to `concat` must be lists")
 					}
-					vals = append(vals, arg.Val.([]Sexpr)...)
+					vals = append(vals, arg.Val.([]Value)...)
 				}
-				return Sexpr{Type: "list", Val: vals}
+				return Value{Type: "list", Val: vals}
 			}},
-			"nth": {Type: "function", Val: func(args ...Sexpr) Sexpr {
+			"nth": {Type: "function", Val: func(args ...Value) Value {
 				if len(args) != 2 {
 					panic("wrong number of arguments. `nth` requires 2 arguments")
 				}
@@ -327,52 +301,52 @@ func BuiltInEnv() *Env {
 				if args[1].Type != "integer" {
 					panic("second argument to `nth` must be an integer")
 				}
-				list := args[0].Val.([]Sexpr)
+				list := args[0].Val.([]Value)
 				idx := args[1].Val.(int64)
 				if idx < 0 || idx >= int64(len(list)) {
 					panic("index out of bounds")
 				}
 				return list[idx]
 			}},
-			"first": {Type: "function", Val: func(args ...Sexpr) Sexpr {
+			"first": {Type: "function", Val: func(args ...Value) Value {
 				if len(args) != 1 {
 					panic("wrong number of arguments. `first` requires 1 argument")
 				}
 				if args[0].Type == "nil" {
-					return Sexpr{Type: "nil", Val: nil}
+					return Value{Type: "nil", Val: nil}
 				}
 				if args[0].Type != "list" && args[0].Type != "vector" {
 					panic("first argument to `first` must be a list")
 				}
-				list := args[0].Val.([]Sexpr)
+				list := args[0].Val.([]Value)
 				if len(list) == 0 {
-					return Sexpr{Type: "nil", Val: nil}
+					return Value{Type: "nil", Val: nil}
 				}
 				return list[0]
 			}},
-			"rest": {Type: "function", Val: func(args ...Sexpr) Sexpr {
+			"rest": {Type: "function", Val: func(args ...Value) Value {
 				if len(args) != 1 {
 					panic("wrong number of arguments. `rest` requires 1 argument")
 				}
 				if args[0].Type == "nil" {
-					return Sexpr{Type: "list", Val: []Sexpr{}}
+					return Value{Type: "list", Val: []Value{}}
 				}
 				if args[0].Type != "list" && args[0].Type != "vector" {
 					panic("first argument to `rest` must be a list")
 				}
-				list := args[0].Val.([]Sexpr)
+				list := args[0].Val.([]Value)
 				if len(list) == 0 {
-					return Sexpr{Type: "list", Val: []Sexpr{}}
+					return Value{Type: "list", Val: []Value{}}
 				}
-				return Sexpr{Type: "list", Val: list[1:]}
+				return Value{Type: "list", Val: list[1:]}
 			}},
-			"throw": {Type: "function", Val: func(args ...Sexpr) Sexpr {
+			"throw": {Type: "function", Val: func(args ...Value) Value {
 				if len(args) != 1 {
 					panic("wrong number of arguments. `throw` requires 1 argument")
 				}
 				panic(args[0])
 			}},
-			"apply": {Type: "function", Val: func(args ...Sexpr) Sexpr {
+			"apply": {Type: "function", Val: func(args ...Value) Value {
 				if len(args) < 2 {
 					panic("wrong number of arguments. `apply` requires at least 2 arguments")
 				}
@@ -387,10 +361,10 @@ func BuiltInEnv() *Env {
 				if fn == nil {
 					panic("first argument to `apply` must be a function")
 				}
-				fnArgs := append(args[1:len(args)-1], args[len(args)-1].Val.([]Sexpr)...)
+				fnArgs := append(args[1:len(args)-1], args[len(args)-1].Val.([]Value)...)
 				return fn(fnArgs...)
 			}},
-			"map": {Type: "function", Val: func(args ...Sexpr) Sexpr {
+			"map": {Type: "function", Val: func(args ...Value) Value {
 				if len(args) != 2 {
 					panic("wrong number of arguments. `map` requires 2 arguments")
 				}
@@ -406,108 +380,99 @@ func BuiltInEnv() *Env {
 					panic("first argument to `map` must be a function")
 				}
 
-				var res []Sexpr
-				for _, arg := range args[1].Val.([]Sexpr) {
+				var res []Value
+				for _, arg := range args[1].Val.([]Value) {
 					res = append(res, fn(arg))
 				}
-				return Sexpr{Type: "list", Val: res}
+				return Value{Type: "list", Val: res}
 			}},
-			"nil?": {Type: "function", Val: func(args ...Sexpr) Sexpr {
+			"nil?": {Type: "function", Val: func(args ...Value) Value {
 				if len(args) != 1 {
 					panic("wrong number of arguments. `nil?` requires 1 argument")
 				}
-				return Sexpr{Type: "boolean", Val: args[0].Type == "nil"}
+				return Value{Type: "boolean", Val: args[0].Type == "nil"}
 			}},
-			"true?": {Type: "function", Val: func(args ...Sexpr) Sexpr {
+			"true?": {Type: "function", Val: func(args ...Value) Value {
 				if len(args) != 1 {
 					panic("wrong number of arguments. `true?` requires 1 argument")
 				}
-				return Sexpr{Type: "boolean", Val: args[0].Type == "boolean" && args[0].Val.(bool)}
+				return Value{Type: "boolean", Val: args[0].Type == "boolean" && args[0].Val.(bool)}
 			}},
-			"false?": {Type: "function", Val: func(args ...Sexpr) Sexpr {
+			"false?": {Type: "function", Val: func(args ...Value) Value {
 				if len(args) != 1 {
 					panic("wrong number of arguments. `false?` requires 1 argument")
 				}
-				return Sexpr{Type: "boolean", Val: args[0].Type == "boolean" && !args[0].Val.(bool)}
+				return Value{Type: "boolean", Val: args[0].Type == "boolean" && !args[0].Val.(bool)}
 			}},
-			"symbol": {Type: "function", Val: func(args ...Sexpr) Sexpr {
+			"symbol": {Type: "function", Val: func(args ...Value) Value {
 				if len(args) != 1 {
 					panic("wrong number of arguments. `symbol` requires 1 argument")
 				}
 				if args[0].Type != "string" {
 					panic("symbol requires a string argument")
 				}
-				return Sexpr{Type: "symbol", Val: args[0].Val.(string)}
+				return Value{Type: "symbol", Val: args[0].Val.(string)}
 			}},
-			"symbol?": {Type: "function", Val: func(args ...Sexpr) Sexpr {
+			"symbol?": {Type: "function", Val: func(args ...Value) Value {
 				if len(args) != 1 {
 					panic("wrong number of arguments. `symbol?` requires 1 argument")
 				}
-				return Sexpr{Type: "boolean", Val: args[0].Type == "symbol"}
+				return Value{Type: "boolean", Val: args[0].Type == "symbol"}
 			}},
-			"keyword": {Type: "function", Val: func(args ...Sexpr) Sexpr {
+			"keyword": {Type: "function", Val: func(args ...Value) Value {
 				if len(args) != 1 {
 					panic("wrong number of arguments. keyword requires 1 argument")
 				}
 				if args[0].Type == "string" {
-					return Sexpr{Type: "keyword", Val: ":" + args[0].Val.(string)}
+					return Value{Type: "keyword", Val: ":" + args[0].Val.(string)}
 				} else if args[0].Type == "keyword" {
 					return args[0]
 				} else {
 					panic("keyword requires a string or keyword argument")
 				}
 			}},
-			"keyword?": {Type: "function", Val: func(args ...Sexpr) Sexpr {
+			"keyword?": {Type: "function", Val: func(args ...Value) Value {
 				if len(args) != 1 {
 					panic("wrong number of arguments. `keyword?` requires 1 argument")
 				}
-				return Sexpr{Type: "boolean", Val: args[0].Type == "keyword"}
+				return Value{Type: "boolean", Val: args[0].Type == "keyword"}
 			}},
-			"sequential?": {Type: "function", Val: func(args ...Sexpr) Sexpr {
+			"sequential?": {Type: "function", Val: func(args ...Value) Value {
 				if len(args) != 1 {
 					panic("wrong number of arguments. `sequential?` requires 1 argument")
 				}
-				return Sexpr{Type: "boolean", Val: args[0].Type == "list" || args[0].Type == "vector"}
+				return Value{Type: "boolean", Val: args[0].Type == "list" || args[0].Type == "vector"}
 			}},
-			"vec": {Type: "function", Val: func(args ...Sexpr) Sexpr {
+			"vec": {Type: "function", Val: func(args ...Value) Value {
 				if len(args) != 1 {
 					panic("wrong number of arguments. `vec` requires 1 argument")
 				}
 				if args[0].Type != "list" && args[0].Type != "vector" {
 					panic("vec requires a list or vector argument")
 				}
-				return Sexpr{Type: "vector", Val: args[0].Val.([]Sexpr)}
+				return Value{Type: "vector", Val: args[0].Val.([]Value)}
 			}},
-			"vector": {Type: "function", Val: func(args ...Sexpr) Sexpr {
-				return Sexpr{Type: "vector", Val: args}
+			"vector": {Type: "function", Val: func(args ...Value) Value {
+				return Value{Type: "vector", Val: args}
 			}},
-			"vector?": {Type: "function", Val: func(args ...Sexpr) Sexpr {
-				if len(args) > 0 && args[0].Type == "vector" {
-					return Sexpr{Type: "boolean", Val: true}
-				}
-				return Sexpr{Type: "boolean", Val: false}
+			"vector?": {Type: "function", Val: func(args ...Value) Value {
+				return Value{Type: "boolean", Val: len(args) > 0 && args[0].Type == "vector"}
 			}},
-			"hash-map": {Type: "function", Val: func(args ...Sexpr) Sexpr {
+			"hash-map": {Type: "function", Val: func(args ...Value) Value {
 				if len(args)%2 != 0 {
 					panic("wrong number of arguments. `hash-map` requires an even number of arguments")
 				}
-				kv := map[string]Sexpr{}
+				kv := map[string]Value{}
 				for i := 0; i < len(args); i += 2 {
 					kv[args[i].Val.(string)] = args[i+1]
 				}
 
-				return Sexpr{
-					Type: "hash-map",
-					Val:  kv,
-				}
+				return Value{Type: "hash-map", Val: kv}
 			}},
-			"map?": {Type: "function", Val: func(args ...Sexpr) Sexpr {
-				if len(args) > 0 && args[0].Type == "hash-map" {
-					return Sexpr{Type: "boolean", Val: true}
-				}
-				return Sexpr{Type: "boolean", Val: false}
+			"map?": {Type: "function", Val: func(args ...Value) Value {
+				return Value{Type: "boolean", Val: len(args) > 0 && args[0].Type == "hash-map"}
 			}},
-			"assoc": {Type: "function", Val: func(args ...Sexpr) Sexpr {
+			"assoc": {Type: "function", Val: func(args ...Value) Value {
 				if len(args) < 3 {
 					panic("wrong number of arguments. `assoc` requires at least 3 arguments")
 				}
@@ -515,26 +480,26 @@ func BuiltInEnv() *Env {
 					panic("first argument to `assoc` must be a hash-map")
 				}
 
-				kv := args[0].Val.(map[string]Sexpr)
+				kv := args[0].Val.(map[string]Value)
 				for i := 1; i < len(args)-1; i += 2 {
 					kv[args[i].Val.(string)] = args[i+1]
 				}
-				return Sexpr{Type: "hash-map", Val: kv}
+				return Value{Type: "hash-map", Val: kv}
 			}},
-			"dissoc": {Type: "function", Val: func(args ...Sexpr) Sexpr {
+			"dissoc": {Type: "function", Val: func(args ...Value) Value {
 				if len(args) != 2 {
 					panic("wrong number of arguments. `dissoc` requires 2 arguments")
 				}
 				if args[0].Type != "hash-map" {
 					panic("first argument to `dissoc` must be a hash-map")
 				}
-				kv := args[0].Val.(map[string]Sexpr)
-				for _, arg := range args[1].Val.([]Sexpr) {
+				kv := args[0].Val.(map[string]Value)
+				for _, arg := range args[1].Val.([]Value) {
 					delete(kv, arg.Val.(string))
 				}
-				return Sexpr{Type: "hash-map", Val: kv}
+				return Value{Type: "hash-map", Val: kv}
 			}},
-			"keys": {Type: "function", Val: func(args ...Sexpr) Sexpr {
+			"keys": {Type: "function", Val: func(args ...Value) Value {
 				if len(args) != 1 {
 					panic("wrong number of arguments. `keys` requires 1 argument")
 				}
@@ -542,14 +507,13 @@ func BuiltInEnv() *Env {
 					panic("first argument to `keys` must be a hash-map")
 				}
 
-				kv := args[0].Val.(map[string]Sexpr)
-				var keys []Sexpr
-				for k := range kv {
-					keys = append(keys, Sexpr{Type: "string", Val: k})
+				var keys []Value
+				for k := range args[0].Val.(map[string]Value) {
+					keys = append(keys, Value{Type: "string", Val: k})
 				}
-				return Sexpr{Type: "list", Val: keys}
+				return Value{Type: "list", Val: keys}
 			}},
-			"vals": {Type: "function", Val: func(args ...Sexpr) Sexpr {
+			"vals": {Type: "function", Val: func(args ...Value) Value {
 				if len(args) != 1 {
 					panic("wrong number of arguments. `values` requires 1 argument")
 				}
@@ -557,14 +521,13 @@ func BuiltInEnv() *Env {
 					panic("first argument to `values` must be a hash-map")
 				}
 
-				kv := args[0].Val.(map[string]Sexpr)
-				var values []Sexpr
-				for _, v := range kv {
+				var values []Value
+				for _, v := range args[0].Val.(map[string]Value) {
 					values = append(values, v)
 				}
-				return Sexpr{Type: "list", Val: values}
+				return Value{Type: "list", Val: values}
 			}},
-			"get": {Type: "function", Val: func(args ...Sexpr) Sexpr {
+			"get": {Type: "function", Val: func(args ...Value) Value {
 				if len(args) < 2 {
 					panic("wrong number of arguments. `get` requires at least 2 arguments")
 				}
@@ -572,15 +535,15 @@ func BuiltInEnv() *Env {
 					panic("first argument to `get` must be a hash-map")
 				}
 
-				kv := args[0].Val.(map[string]Sexpr)
+				kv := args[0].Val.(map[string]Value)
 				for i := 1; i < len(args); i++ {
 					if val, ok := kv[args[i].Val.(string)]; ok {
 						return val
 					}
 				}
-				return Sexpr{Type: "nil", Val: nil}
+				return Value{Type: "nil", Val: nil}
 			}},
-			"contains?": {Type: "function", Val: func(args ...Sexpr) Sexpr {
+			"contains?": {Type: "function", Val: func(args ...Value) Value {
 				if len(args) < 2 {
 					panic("wrong number of arguments. `contains` requires at least 2 arguments")
 				}
@@ -588,15 +551,15 @@ func BuiltInEnv() *Env {
 					panic("first argument to `contains` must be a hash-map")
 				}
 
-				kv := args[0].Val.(map[string]Sexpr)
+				kv := args[0].Val.(map[string]Value)
 				for i := 1; i < len(args); i++ {
 					if _, ok := kv[args[i].Val.(string)]; ok {
-						return Sexpr{Type: "boolean", Val: true}
+						return Value{Type: "boolean", Val: true}
 					}
 				}
-				return Sexpr{Type: "boolean", Val: false}
+				return Value{Type: "boolean", Val: false}
 			}},
-			"readline": {Type: "function", Val: func(args ...Sexpr) Sexpr {
+			"readline": {Type: "function", Val: func(args ...Value) Value {
 				if len(args) != 1 {
 					panic("wrong number of arguments. `readline` requires 1 argument")
 				}
@@ -610,26 +573,26 @@ func BuiltInEnv() *Env {
 				input, err := reader.ReadString('\n')
 				if err != nil {
 					if err.Error() == "EOF" {
-						return Sexpr{Type: "nil", Val: nil}
+						return Value{Type: "nil", Val: nil}
 					}
 					panic(err)
 				}
 
-				return Sexpr{Type: "string", Val: strings.TrimRight(input, "\n")}
+				return Value{Type: "string", Val: strings.TrimRight(input, "\n")}
 			}},
-			"time-ms":   {Type: "function", Val: func(args ...Sexpr) Sexpr { panic("unimplemented") }},
-			"meta":      {Type: "function", Val: func(args ...Sexpr) Sexpr { panic("unimplemented") }},
-			"with-meta": {Type: "function", Val: func(args ...Sexpr) Sexpr { panic("unimplemented") }},
-			"fn?":       {Type: "function", Val: func(args ...Sexpr) Sexpr { panic("unimplemented") }},
-			"string?":   {Type: "function", Val: func(args ...Sexpr) Sexpr { panic("unimplemented") }},
-			"number?":   {Type: "function", Val: func(args ...Sexpr) Sexpr { panic("unimplemented") }},
-			"seq":       {Type: "function", Val: func(args ...Sexpr) Sexpr { panic("unimplemented") }},
-			"conj":      {Type: "function", Val: func(args ...Sexpr) Sexpr { panic("unimplemented") }},
+			"time-ms":   {Type: "function", Val: func(args ...Value) Value { panic("unimplemented") }},
+			"meta":      {Type: "function", Val: func(args ...Value) Value { panic("unimplemented") }},
+			"with-meta": {Type: "function", Val: func(args ...Value) Value { panic("unimplemented") }},
+			"fn?":       {Type: "function", Val: func(args ...Value) Value { panic("unimplemented") }},
+			"string?":   {Type: "function", Val: func(args ...Value) Value { panic("unimplemented") }},
+			"number?":   {Type: "function", Val: func(args ...Value) Value { panic("unimplemented") }},
+			"seq":       {Type: "function", Val: func(args ...Value) Value { panic("unimplemented") }},
+			"conj":      {Type: "function", Val: func(args ...Value) Value { panic("unimplemented") }},
 		},
 	}
 
 	// defined here to allow cyclic reference to env
-	env.bindings["eval"] = Sexpr{Type: "function", Val: func(args ...Sexpr) Sexpr {
+	env.bindings["eval"] = Value{Type: "function", Val: func(args ...Value) Value {
 		if len(args) != 1 {
 			panic("wrong number of arguments. `eval` requires 1 arguments")
 		}

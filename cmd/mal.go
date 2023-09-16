@@ -10,20 +10,19 @@ import (
 )
 
 func printError(err any) {
-	const colorRed = "\033[31m"
-	const colorReset = "\033[0m"
+	const colorRed, colorReset = "\033[31m", "\033[0m"
 	fmt.Printf("%sError: %s%s", colorRed, err, colorReset)
 }
 
-func read(str string) m.Sexpr {
+func read(str string) m.Value {
 	return m.ReadStr(str)
 }
 
-func eval(expr m.Sexpr, env *m.Env) m.Sexpr {
+func eval(expr m.Value, env *m.Env) m.Value {
 	return m.Eval(expr, env)
 }
 
-func print(expr m.Sexpr) string {
+func print(expr m.Value) string {
 	return m.PrintStr(expr, true)
 }
 
@@ -42,7 +41,7 @@ func rep(str string, env *m.Env) (out string) {
 
 func main() {
 	reader := bufio.NewReader(os.Stdin)
-	env := m.BuiltInEnv()
+	env := m.BaseEnv()
 
 	// self-hosted fns
 	rep(`(def! not (fn* (a) (if a false true)))`, env)
@@ -50,11 +49,11 @@ func main() {
 	rep(`(def! load-file (fn* (f) (eval (read-string (str "(do " (slurp f) "\nnil)")))))`, env)
 
 	if len(os.Args) > 1 {
-		var vals []m.Sexpr
+		var vals []m.Value
 		for _, arg := range os.Args[2:] {
-			vals = append(vals, m.Sexpr{Type: "string", Val: arg})
+			vals = append(vals, m.Value{Type: "string", Val: arg})
 		}
-		env.Set("*ARGV*", m.Sexpr{Type: "list", Val: vals})
+		env.Set("*ARGV*", m.Value{Type: "list", Val: vals})
 		rep(fmt.Sprintf("(load-file \"%s\")", os.Args[1]), env)
 		return
 	}
