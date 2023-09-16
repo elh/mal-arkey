@@ -17,7 +17,7 @@ func PrintStr(s Sexpr, readably bool) string {
 			return fmt.Sprintf("\"%s\"", str)
 		}
 		return str
-	case "symbol", "integer", "float", "boolean":
+	case "symbol", "integer", "float", "boolean", "keyword":
 		return fmt.Sprintf("%v", s.Val)
 	case "nil":
 		return "nil"

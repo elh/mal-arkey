@@ -152,6 +152,12 @@ func readAtom(reader *Reader) Sexpr {
 			Val:  str,
 		}
 	}
+	if strings.HasPrefix(token, ":") {
+		return Sexpr{
+			Type: "keyword",
+			Val:  token,
+		}
+	}
 
 	switch token {
 	case "true":
