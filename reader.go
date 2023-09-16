@@ -1,4 +1,4 @@
-package mal
+package malarkey
 
 import (
 	"regexp"

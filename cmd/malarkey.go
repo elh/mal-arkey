@@ -6,23 +6,25 @@ import (
 	"os"
 	"strings"
 
-	m "github.com/elh/mal-arkey/internal/pkg/mal"
+	mal "github.com/elh/mal-arkey"
 )
 
 // Read–eval–print. recover panics here so that REPL can continue accepting stdin
-func rep(str string, env *m.Env) (out string) {
+func rep(str string, env *mal.Env) (out string) {
 	defer func() {
 		if r := recover(); r != nil {
 			const colorRed, colorReset = "\033[31m", "\033[0m"
 			fmt.Printf("%sError: %s%s", colorRed, r, colorReset)
 		}
 	}()
-	return m.Print(m.Eval(m.Read(str), env), true)
+	return mal.Print(mal.Eval(mal.Read(str), env), true)
 }
 
+// Starts the Mal-arkey REPL. If command line args are provided, the first arg is treated as a file to load, and the
+// remaining are bound as a list to `*ARGV*`.
 func main() {
 	reader := bufio.NewReader(os.Stdin)
-	env := m.BuiltinEnv()
+	env := mal.BuiltinEnv()
 
 	// self-hosted fns
 	rep(`(def! not (fn* (a) (if a false true)))`, env)
@@ -30,11 +32,11 @@ func main() {
 	rep(`(def! load-file (fn* (f) (eval (read-string (str "(do " (slurp f) "\nnil)")))))`, env)
 
 	if len(os.Args) > 1 {
-		var vals []m.Value
+		var vals []mal.Value
 		for _, arg := range os.Args[2:] {
-			vals = append(vals, m.Value{Type: "string", Val: arg})
+			vals = append(vals, mal.Value{Type: "string", Val: arg})
 		}
-		env.Set("*ARGV*", m.Value{Type: "list", Val: vals})
+		env.Set("*ARGV*", mal.Value{Type: "list", Val: vals})
 		rep(fmt.Sprintf("(load-file \"%s\")", os.Args[1]), env)
 		return
 	}

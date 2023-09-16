@@ -1,4 +1,4 @@
-package mal
+package malarkey
 
 // This is a gross hack to dig myself out of the fact that I'm not using pointers
 // and my variables are immutable. I don't have a mechanism to carry around the

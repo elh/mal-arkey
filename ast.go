@@ -1,4 +1,4 @@
-package mal
+package malarkey
 
 // Value is a mal value with explicit type.
 // Types:
