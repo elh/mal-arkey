@@ -3,12 +3,25 @@ package mal
 // TODO: change? I'm following the instructions from mal but I don't get this factoring.
 func evalAST(sexpr Sexpr, env *Env) Sexpr {
 	switch sexpr.Type {
+	// TODO: compress code
 	case "list":
 		var elems []Sexpr
 		for _, elem := range sexpr.Val.([]Sexpr) {
 			elems = append(elems, Eval(elem, env))
 		}
 		return Sexpr{Type: "list", Val: elems}
+	case "vector":
+		var elems []Sexpr
+		for _, elem := range sexpr.Val.([]Sexpr) {
+			elems = append(elems, Eval(elem, env))
+		}
+		return Sexpr{Type: "vector", Val: elems}
+	case "hash-map":
+		kv := map[string]Sexpr{}
+		for k, v := range sexpr.Val.(map[string]Sexpr) {
+			kv[k] = Eval(v, env)
+		}
+		return Sexpr{Type: "hash-map", Val: kv}
 	case "symbol":
 		s, err := env.Get(sexpr.Val.(string))
 		if err != nil {
