@@ -404,6 +404,20 @@ func BuiltInEnv() *Env {
 				}
 				return Sexpr{Type: "boolean", Val: args[0].Type == "symbol"}
 			}},
+			"assoc": {Type: "function", Val: func(args ...Sexpr) Sexpr {
+				if len(args) < 3 {
+					panic("wrong number of arguments. `assoc` requires at least 3 arguments")
+				}
+				if args[0].Type != "hash-map" {
+					panic("first argument to `assoc` must be a hash-map")
+				}
+
+				kv := args[0].Val.(map[string]Sexpr)
+				for i := 1; i < len(args)-1; i += 2 {
+					kv[args[i].Val.(string)] = args[i+1]
+				}
+				return Sexpr{Type: "hash-map", Val: kv}
+			}},
 			"readline": {Type: "function", Val: func(args ...Sexpr) Sexpr {
 				if len(args) != 1 {
 					panic("wrong number of arguments. `readline` requires 1 argument")
