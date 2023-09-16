@@ -18,11 +18,12 @@ type Env struct {
 // NewEnv creates a new environment with the given outer environment.
 func NewEnv(outer *Env, bindSymbols []Sexpr, bindValues []Sexpr) *Env {
 	bindings := map[string]Sexpr{}
-	if len(bindSymbols) != len(bindValues) {
-		panic("wrong number of binding symbols and values")
-	}
-	for i, v := range bindValues {
-		bindings[bindSymbols[i].Val.(string)] = v
+	for i, s := range bindSymbols {
+		if s.Type == "symbol" && s.Val.(string) == "&" {
+			bindings[bindSymbols[i+1].Val.(string)] = Sexpr{Type: "list", Val: bindValues[i:]}
+			break
+		}
+		bindings[s.Val.(string)] = bindValues[i]
 	}
 
 	return &Env{
@@ -424,6 +425,14 @@ func BuiltInEnv() *Env {
 
 				return Sexpr{Type: "string", Val: strings.TrimRight(input, "\n")}
 			}},
+			"time-ms":   {Type: "function", Val: func(args ...Sexpr) Sexpr { panic("unimplemented") }},
+			"meta":      {Type: "function", Val: func(args ...Sexpr) Sexpr { panic("unimplemented") }},
+			"with-meta": {Type: "function", Val: func(args ...Sexpr) Sexpr { panic("unimplemented") }},
+			"fn?":       {Type: "function", Val: func(args ...Sexpr) Sexpr { panic("unimplemented") }},
+			"string?":   {Type: "function", Val: func(args ...Sexpr) Sexpr { panic("unimplemented") }},
+			"number?":   {Type: "function", Val: func(args ...Sexpr) Sexpr { panic("unimplemented") }},
+			"seq":       {Type: "function", Val: func(args ...Sexpr) Sexpr { panic("unimplemented") }},
+			"conj":      {Type: "function", Val: func(args ...Sexpr) Sexpr { panic("unimplemented") }},
 		},
 	}
 
