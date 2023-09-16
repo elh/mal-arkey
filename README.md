@@ -1,19 +1,18 @@
-# mal-arkey - my "Make a Lisp" impl in Go
+# mal-arkey - "Make a Lisp" in Go
 
-> 1. Mal is a Clojure inspired Lisp interpreter
-> 2. Mal is a learning tool
+> Mal is a Clojure inspired Lisp interpreter
+
+Mal-arkey is my complete [mal](https://github.com/kanaka/mal) implementation in Go biasing towards readability and simplicity. It passes all non-optional tests and is capable of self-hosting mal.
 
 ```
 > make repl
-Mal [Mal-arkey (go)]
+Mal [Mal-arkey]
 user> (defmacro! when (fn* [test & body] `(if ~test (do ~@body))))
 #<function>
-user> (let* [name "Malarkey"] (when (not (nil? name)) (println "Begin" name)))
-Begin Malarkey
+user> (let* [name "Mal-arkey"] (when (not (nil? name)) (println "Begin" name)))
+Begin Mal-arkey
 nil
 ```
-
-Status: This passes all non-optional, non-deferred tests in `kanaka/mal`. Currently, I'm working on getting it self-hosting.
 
 ### Usage
 

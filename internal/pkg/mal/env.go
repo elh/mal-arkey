@@ -74,7 +74,7 @@ func BuiltInEnv() *Env {
 	env := &Env{
 		outer: nil,
 		bindings: map[string]Sexpr{
-			"*host-language*": {Type: "string", Val: "Mal-arkey (go)"},
+			"*host-language*": {Type: "string", Val: "Mal-arkey"},
 			"+": {Type: "function", Val: func(args ...Sexpr) Sexpr {
 				var sum int64
 				for _, arg := range args {
@@ -397,7 +397,7 @@ func BuiltInEnv() *Env {
 				if args[0].Type != "function" && args[0].Type != "function-tco" {
 					panic("first argument to `map` must be a function")
 				}
-				if args[1].Type != "list" {
+				if args[1].Type != "list" && args[1].Type != "vector" {
 					panic("second argument to `map` must be a list")
 				}
 
@@ -430,11 +430,56 @@ func BuiltInEnv() *Env {
 				}
 				return Sexpr{Type: "boolean", Val: args[0].Type == "boolean" && !args[0].Val.(bool)}
 			}},
+			"symbol": {Type: "function", Val: func(args ...Sexpr) Sexpr {
+				if len(args) != 1 {
+					panic("wrong number of arguments. `symbol` requires 1 argument")
+				}
+				if args[0].Type != "string" {
+					panic("symbol requires a string argument")
+				}
+				return Sexpr{Type: "symbol", Val: args[0].Val.(string)}
+			}},
 			"symbol?": {Type: "function", Val: func(args ...Sexpr) Sexpr {
 				if len(args) != 1 {
 					panic("wrong number of arguments. `symbol?` requires 1 argument")
 				}
 				return Sexpr{Type: "boolean", Val: args[0].Type == "symbol"}
+			}},
+			"keyword": {Type: "function", Val: func(args ...Sexpr) Sexpr {
+				if len(args) != 1 {
+					panic("wrong number of arguments. keyword requires 1 argument")
+				}
+				if args[0].Type == "string" {
+					return Sexpr{Type: "keyword", Val: ":" + args[0].Val.(string)}
+				} else if args[0].Type == "keyword" {
+					return args[0]
+				} else {
+					panic("keyword requires a string or keyword argument")
+				}
+			}},
+			"keyword?": {Type: "function", Val: func(args ...Sexpr) Sexpr {
+				if len(args) != 1 {
+					panic("wrong number of arguments. `keyword?` requires 1 argument")
+				}
+				return Sexpr{Type: "boolean", Val: args[0].Type == "keyword"}
+			}},
+			"sequential?": {Type: "function", Val: func(args ...Sexpr) Sexpr {
+				if len(args) != 1 {
+					panic("wrong number of arguments. `sequential?` requires 1 argument")
+				}
+				return Sexpr{Type: "boolean", Val: args[0].Type == "list" || args[0].Type == "vector"}
+			}},
+			"vec": {Type: "function", Val: func(args ...Sexpr) Sexpr {
+				if len(args) != 1 {
+					panic("wrong number of arguments. `vec` requires 1 argument")
+				}
+				if args[0].Type != "list" && args[0].Type != "vector" {
+					panic("vec requires a list or vector argument")
+				}
+				return Sexpr{Type: "vector", Val: args[0].Val.([]Sexpr)}
+			}},
+			"vector": {Type: "function", Val: func(args ...Sexpr) Sexpr {
+				return Sexpr{Type: "vector", Val: args}
 			}},
 			"vector?": {Type: "function", Val: func(args ...Sexpr) Sexpr {
 				if len(args) > 0 && args[0].Type == "vector" {
@@ -476,6 +521,19 @@ func BuiltInEnv() *Env {
 				}
 				return Sexpr{Type: "hash-map", Val: kv}
 			}},
+			"dissoc": {Type: "function", Val: func(args ...Sexpr) Sexpr {
+				if len(args) != 2 {
+					panic("wrong number of arguments. `dissoc` requires 2 arguments")
+				}
+				if args[0].Type != "hash-map" {
+					panic("first argument to `dissoc` must be a hash-map")
+				}
+				kv := args[0].Val.(map[string]Sexpr)
+				for _, arg := range args[1].Val.([]Sexpr) {
+					delete(kv, arg.Val.(string))
+				}
+				return Sexpr{Type: "hash-map", Val: kv}
+			}},
 			"keys": {Type: "function", Val: func(args ...Sexpr) Sexpr {
 				if len(args) != 1 {
 					panic("wrong number of arguments. `keys` requires 1 argument")
@@ -491,7 +549,7 @@ func BuiltInEnv() *Env {
 				}
 				return Sexpr{Type: "list", Val: keys}
 			}},
-			"values": {Type: "function", Val: func(args ...Sexpr) Sexpr {
+			"vals": {Type: "function", Val: func(args ...Sexpr) Sexpr {
 				if len(args) != 1 {
 					panic("wrong number of arguments. `values` requires 1 argument")
 				}
